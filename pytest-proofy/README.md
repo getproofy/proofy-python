@@ -41,7 +41,7 @@ pytest --proofy-api-base https://api.proofy.io \
 ```bash
 # Core options
 --proofy-mode {live,batch,lazy}     # Reporting mode
---proofy-api-base URL               # Proofy API base URL  
+--proofy-api-base URL               # Proofy API base URL
 --proofy-token TOKEN                # API authentication token
 --proofy-project-id ID              # Project ID
 
@@ -56,7 +56,7 @@ pytest --proofy-api-base https://api.proofy.io \
 --proofy-disable-attachments        # Disable attachment processing
 --proofy-disable-hooks              # Disable plugin hooks
 
-# Output options  
+# Output options
 --proofy-output-dir DIR             # Local backup directory
 --proofy-always-backup              # Always create local backup
 
@@ -90,6 +90,7 @@ proofy_output_dir = test-artifacts
 ## Reporting Modes
 
 ### Live Mode
+
 Real-time test reporting with immediate server updates:
 
 ```bash
@@ -102,6 +103,7 @@ pytest --proofy-mode live
 - Best for interactive development and debugging
 
 ### Lazy Mode (Default)
+
 Sends complete results after test execution:
 
 ```bash
@@ -114,6 +116,7 @@ pytest --proofy-mode lazy
 - Best for CI/CD environments
 
 ### Batch Mode
+
 Groups results and sends in configurable batches:
 
 ```bash
@@ -154,17 +157,17 @@ def test_dynamic_metadata():
     set_name("Dynamic Test Name")
     set_description("This description is set at runtime")
     set_severity("high")
-    
+
     # Test logic here
     result = perform_test()
-    
+
     if result.screenshot:
         add_attachment(
             result.screenshot,
             name="test_screenshot",
             mime_type="image/png"
         )
-    
+
     add_attributes(
         execution_time=result.duration,
         environment="staging"
@@ -197,7 +200,7 @@ def test_with_attachments():
     # Your test code
     take_screenshot("failure.png")
     save_logs("test.log")
-    
+
     # Add attachments
     add_attachment("failure.png", name="Failure Screenshot")
     add_attachment("test.log", name="Test Logs", mime_type="text/plain")
@@ -218,15 +221,15 @@ class TestWebApp:
         driver = webdriver.Chrome()
         yield driver
         driver.quit()
-    
+
     @set_severity("critical")
     @tags("ui", "smoke")
     def test_login_page(self, driver):
         driver.get("https://app.example.com/login")
-        
+
         # Test logic
         assert "Login" in driver.title
-        
+
         # Add screenshot on failure
         if hasattr(self, '_pytest_failed'):
             screenshot = driver.get_screenshot_as_png()
@@ -247,19 +250,19 @@ def test_create_user_api():
         "name": "Test User",
         "email": "test@example.com"
     })
-    
+
     # Add response details as attributes
     add_attributes(
         status_code=response.status_code,
         response_time=response.elapsed.total_seconds(),
         endpoint="/api/users"
     )
-    
+
     # Save response for debugging
     with open("api_response.json", "w") as f:
         f.write(response.text)
     add_attachment("api_response.json", name="API Response")
-    
+
     assert response.status_code == 201
 ```
 
@@ -274,12 +277,12 @@ class CustomProofyPlugin:
     @hookimpl
     def proofy_test_start(self, test_id, test_name, test_path):
         print(f"Starting test: {test_name}")
-    
+
     @hookimpl
     def proofy_test_finish(self, test_result):
         if test_result.outcome == "failed":
             print(f"Test failed: {test_result.name}")
-    
+
     @hookimpl
     def proofy_add_attachment(self, test_id, file_path, name, mime_type):
         print(f"Attachment added: {name}")
@@ -294,12 +297,14 @@ pm.register_plugin(CustomProofyPlugin())
 ### Common Issues
 
 1. **Authentication Errors**
+
    ```bash
    # Verify token is correct
    curl -H "Authorization: Bearer YOUR_TOKEN" https://api.proofy.io/health
    ```
 
 2. **Connection Issues**
+
    ```bash
    # Test with increased timeout
    pytest --proofy-timeout 60
@@ -332,11 +337,12 @@ pytest --proofy-always-backup --proofy-output-dir ./test-results
 This plugin is compatible with Proofy API v1:
 
 - **POST /v1/runs** - Create test runs
-- **PATCH /v1/runs/{run_id}** - Update runs  
+- **PATCH /v1/runs/{run_id}** - Update runs
 - **POST /v1/runs/{run_id}/results** - Create test results
 - **PATCH /v1/runs/{run_id}/results/{result_id}** - Update results
 
 Status mappings:
+
 - pytest `passed` → `PASSED (1)`
 - pytest `failed` → `FAILED (2)`
 - pytest `error` → `BROKEN (3)`

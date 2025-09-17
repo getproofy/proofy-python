@@ -70,3 +70,6 @@ Thumbs.db
 proofy-artifacts/
 *.log
 .proofy_cache/
+
+# Local
+local/
