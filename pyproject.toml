@@ -26,8 +26,13 @@ dev = [
     "pytest>=8.2",
     "pytest-xdist>=3.5",
     "pytest-rerunfailures>=12.0",
+    "pytest-cov>=4.1",
+    "coverage[toml]>=7.0",
     "mypy>=1.10",
     "pre-commit>=3.8",
+    "ipython>=8.0",
+    "ipdb>=0.13",
+    "pytest-watch>=4.2.0",
 ]
 pytest = ["pytest>=8.2"]
 behave = ["behave>=1.2.6"]
@@ -107,6 +112,8 @@ files = [
 exclude = [
     "^tests/",
     "^examples/",
+    ".*/tests/.*",
+    ".*/test_.*",
 ]
 
 [tool.coverage.run]
@@ -130,4 +137,9 @@ exclude_lines = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
+]
+
+[dependency-groups]
+dev = [
+    "types-requests>=2.32.4.20250913",
 ]

@@ -73,3 +73,7 @@ proofy-artifacts/
 
 # Local
 local/
+
+# UV
+uv.lock
+.uvrc

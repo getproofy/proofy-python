@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 from _pytest.reports import TestReport
@@ -22,6 +24,7 @@ from proofy import (
     hookimpl,
     set_current_test_context,
 )
+from pytest import CallInfo
 
 from .config import (
     ProofyConfig,
@@ -335,8 +338,8 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
                 display_name=result.name,
                 path=result.path,
                 status=ResultStatus.IN_PROGRESS,
-                start_time=result.start_time,
-                end_time=result.start_time,
+                start_time=result.start_time or datetime.now(),
+                end_time=result.start_time or datetime.now(),
                 duration=0,
             )
             result.server_id = server_id
@@ -347,10 +350,12 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
+def pytest_runtest_makereport(
+    item: pytest.Item, call: CallInfo[None]
+) -> Generator[None, None, None]:
     """Called to create test reports."""
     outcome = yield
-    report = outcome.get_result()
+    report = outcome.get_result()  # type: ignore[attr-defined]
 
     if not _plugin_instance or call.when != "call":
         return
@@ -493,17 +498,19 @@ class PytestProofyHooks:
     """Hook implementations for pytest integration."""
 
     @hookimpl
-    def proofy_test_start(self, test_id: str, test_name: str, test_path: str):
+    def proofy_test_start(self, test_id: str, test_name: str, test_path: str) -> None:
         """Called when test starts."""
         pass  # Already handled in pytest_runtest_setup
 
     @hookimpl
-    def proofy_test_finish(self, test_result):
+    def proofy_test_finish(self, test_result: TestResult) -> None:
         """Called when test finishes."""
         pass  # Already handled in pytest_runtest_makereport
 
     @hookimpl
-    def proofy_add_attachment(self, test_id: str, file_path: str, name: str, mime_type=None):
+    def proofy_add_attachment(
+        self, test_id: str, file_path: str, name: str, mime_type: str | None = None
+    ) -> None:
         """Called to add attachment."""
         if _plugin_instance and test_id in _plugin_instance.test_results:
             result = _plugin_instance.test_results[test_id]
@@ -515,6 +522,6 @@ class PytestProofyHooks:
             result.attachments.append(attachment)
 
     @hookimpl
-    def proofy_mark_attributes(self, attributes):
+    def proofy_mark_attributes(self, attributes: dict[str, Any]) -> Any:
         """Create pytest mark for attributes."""
         return pytest.mark.proofy_attributes(**attributes)

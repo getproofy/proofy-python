@@ -254,9 +254,21 @@ def test_passing_after_failure():
             results_data = json.load(f)
 
         # Should have both passed and failed results
+        # Check both outcome (string) and status (numeric) fields for compatibility
+        outcomes = [result.get("outcome") for result in results_data]
         statuses = [result.get("status") for result in results_data]
-        assert "failed" in statuses or "FAILED" in statuses
-        assert "passed" in statuses or "PASSED" in statuses
+
+        # Check for failed results - either string outcome or numeric status
+        has_failed = (
+            "failed" in outcomes or "FAILED" in outcomes or 2 in statuses
+        )  # ResultStatus.FAILED = 2
+        assert has_failed, f"No failed results found. Outcomes: {outcomes}, Statuses: {statuses}"
+
+        # Check for passed results - either string outcome or numeric status
+        has_passed = (
+            "passed" in outcomes or "PASSED" in outcomes or 1 in statuses
+        )  # ResultStatus.PASSED = 1
+        assert has_passed, f"No passed results found. Outcomes: {outcomes}, Statuses: {statuses}"
 
     def test_xdist_performance_improvement(self, sample_test_project):
         """Test that xdist actually improves performance."""

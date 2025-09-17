@@ -8,7 +8,7 @@ import urllib.parse
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import requests
 
@@ -91,7 +91,7 @@ class ProofyClient:
             url = f"{self.base_url}/results"
             payload = result.to_dict()
             response = self.session.post(url, json=payload, timeout=self.timeout_s)
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
 
     def send_test_results(self, results: Iterable[TestResult]) -> requests.Response:
         """Send multiple test results in batch (current project compatibility)."""
@@ -120,16 +120,19 @@ class ProofyClient:
         attributes: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create a new test run and return its details including ID."""
-        return self._send_request(
-            "POST",
-            "/api/v1/runs",
-            data={
-                "project_id": project,
-                "name": name,
-                "status": status,
-                "attributes": convert_dict_to_key_value(attributes),
-            },
-        ).json()
+        return cast(
+            dict[str, Any],
+            self._send_request(
+                "POST",
+                "/api/v1/runs",
+                data={
+                    "project_id": project,
+                    "name": name,
+                    "status": status,
+                    "attributes": convert_dict_to_key_value(attributes),
+                },
+            ).json(),
+        )
 
     def update_test_run(
         self,
@@ -139,15 +142,18 @@ class ProofyClient:
         attributes: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update an existing test run."""
-        return self._send_request(
-            "PATCH",
-            f"/api/v1/runs/{run_id}",
-            data={
-                "status": status,
-                "end_time": end_time,
-                "attributes": convert_dict_to_key_value(attributes),
-            },
-        ).json()
+        return cast(
+            dict[str, Any],
+            self._send_request(
+                "PATCH",
+                f"/api/v1/runs/{run_id}",
+                data={
+                    "status": status,
+                    "end_time": end_time,
+                    "attributes": convert_dict_to_key_value(attributes),
+                },
+            ).json(),
+        )
 
     def create_test_result(
         self,
@@ -209,7 +215,7 @@ class ProofyClient:
         response = self._send_request(
             "POST", f"/api/v1/runs/{run_id}/results:batch", data={"items": items}
         )
-        return response.json().get("items", [])
+        return response.json().get("items", [])  # type: ignore[no-any-return]
 
     def update_test_result(
         self,
@@ -222,18 +228,21 @@ class ProofyClient:
         attributes: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update an existing test result."""
-        return self._send_request(
-            "PATCH",
-            f"/api/v1/results/{result_id}",
-            data={
-                "status": status,
-                "duration": duration,
-                "end_time": end_time,
-                "message": message,
-                "trace": trace,
-                "attributes": convert_dict_to_key_value(attributes),
-            },
-        ).json()
+        return cast(
+            dict[str, Any],
+            self._send_request(
+                "PATCH",
+                f"/api/v1/results/{result_id}",
+                data={
+                    "status": status,
+                    "duration": duration,
+                    "end_time": end_time,
+                    "message": message,
+                    "trace": trace,
+                    "attributes": convert_dict_to_key_value(attributes),
+                },
+            ).json(),
+        )
 
     def add_attachment(
         self,
@@ -265,7 +274,7 @@ class ProofyClient:
                 files=files,
             )
 
-        return response.json()
+        return response.json()  # type: ignore[no-any-return]
 
     # ========== Utility Methods ==========
 

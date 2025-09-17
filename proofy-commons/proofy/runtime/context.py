@@ -144,7 +144,7 @@ def push_test_context(ctx: TestContext) -> None:
     Args:
         ctx: Test context to push
     """
-    stack = getattr(_LOCAL, "ctx_stack", [])
+    stack: list[TestContext] = getattr(_LOCAL, "ctx_stack", [])
     stack.append(get_current_test_context())
     _LOCAL.ctx_stack = stack
     set_current_test_context(ctx)
@@ -156,7 +156,7 @@ def pop_test_context() -> TestContext | None:
     Returns:
         Previous test context, or None if stack is empty
     """
-    stack = getattr(_LOCAL, "ctx_stack", [])
+    stack: list[TestContext] = getattr(_LOCAL, "ctx_stack", [])
     if not stack:
         return None
 

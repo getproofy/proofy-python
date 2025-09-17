@@ -3,31 +3,31 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
 
 try:
     # Check if xdist is available
-    import xdist  # noqa: F401
+    import xdist  # type: ignore # noqa: F401
 
     XDIST_AVAILABLE = True
 except ImportError:
     XDIST_AVAILABLE = False
 
 
-def register_xdist_hooks(plugin_manager, plugin_instance):
+def register_xdist_hooks(plugin_manager: Any, plugin_instance: Any) -> None:
     """Register xdist hooks if xdist is available."""
     if not XDIST_AVAILABLE:
         return
 
     # Create a hooks class with proper hookimpl decorators
     class ProofyXdistHooks:
-        def __init__(self, plugin_instance):
+        def __init__(self, plugin_instance: Any) -> None:
             self.plugin_instance = plugin_instance
 
-        def pytest_configure_node(self, node):
+        def pytest_configure_node(self, node: Any) -> None:
             """Configure pytest-xdist worker nodes."""
             if not hasattr(node, "workerinput"):
                 return
@@ -42,12 +42,12 @@ def register_xdist_hooks(plugin_manager, plugin_instance):
                     }
                 )
 
-        def pytest_testnodedown(self, node, error):
+        def pytest_testnodedown(self, node: Any, error: Any) -> None:
             """Called when an xdist worker node goes down."""
             # Handle worker cleanup if needed
             pass
 
-        def pytest_testnodeready(self, node):
+        def pytest_testnodeready(self, node: Any) -> None:
             """Called when an xdist worker node is ready."""
             # Worker is ready to receive tests
             pass
@@ -61,19 +61,19 @@ def register_xdist_hooks(plugin_manager, plugin_instance):
         pass
 
 
-def is_xdist_worker(session):
+def is_xdist_worker(session: Any) -> bool:
     """Check if running in an xdist worker."""
     return hasattr(session.config, "workerinput")
 
 
-def get_worker_input(session):
+def get_worker_input(session: Any) -> Any:
     """Get worker input data if available."""
     if hasattr(session.config, "workerinput"):
         return session.config.workerinput
     return None
 
 
-def setup_worker_plugin(session):
+def setup_worker_plugin(session: Any) -> Any:
     """Set up plugin instance for xdist worker."""
     from .config import ProofyConfig
     from .plugin import ProofyPytestPlugin
@@ -93,7 +93,7 @@ def setup_worker_plugin(session):
         plugin.session_id = workerinput.get("proofy_session_id", str(uuid.uuid4()))
 
         # Store plugin instance in config for access
-        session.config._proofy_plugin = plugin  # type: ignore[attr-defined]
+        session.config._proofy_plugin = plugin
 
         return plugin
     except Exception:
@@ -101,7 +101,7 @@ def setup_worker_plugin(session):
         return None
 
 
-def transfer_config_to_workers(plugin_instance):
+def transfer_config_to_workers(plugin_instance: Any) -> dict[str, Any]:
     """Prepare config data for transfer to workers."""
     if not plugin_instance:
         return {}

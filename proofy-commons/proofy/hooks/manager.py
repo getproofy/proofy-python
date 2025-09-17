@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from typing import Any
 
 from pluggy import PluginManager
 
@@ -61,7 +62,7 @@ class ProofyPluginManager:
         self._pm = get_plugin_manager()
 
     @property
-    def hook(self):
+    def hook(self) -> Any:
         """Access to the hook calling interface."""
         return self._pm.hook
 
@@ -82,7 +83,7 @@ class ProofyPluginManager:
         """
         self._pm.unregister(plugin)
 
-    def get_plugins(self) -> list:
+    def get_plugins(self) -> list[Any]:
         """Get all registered plugins.
 
         Returns:
@@ -101,7 +102,7 @@ class ProofyPluginManager:
         """
         return self._pm.has_plugin(name)
 
-    def call_hook(self, hook_name: str, **kwargs) -> list:
+    def call_hook(self, hook_name: str, **kwargs: Any) -> list[Any]:
         """Call a hook by name with keyword arguments.
 
         Args:
@@ -114,9 +115,9 @@ class ProofyPluginManager:
         hook = getattr(self.hook, hook_name, None)
         if hook is None:
             raise ValueError(f"Unknown hook: {hook_name}")
-        return hook(**kwargs)
+        return hook(**kwargs)  # type: ignore[no-any-return]
 
-    def call_hook_first_result(self, hook_name: str, **kwargs):
+    def call_hook_first_result(self, hook_name: str, **kwargs: Any) -> Any:
         """Call a hook and return the first non-None result.
 
         Args:

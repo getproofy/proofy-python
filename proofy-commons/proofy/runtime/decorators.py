@@ -24,7 +24,7 @@ def name(value: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             ctx = get_current_test_context()
             ctx.name = value
 
@@ -63,7 +63,7 @@ def description(text: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             ctx = get_current_test_context()
             ctx.description = text
 
@@ -90,7 +90,7 @@ def severity(level: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             ctx = get_current_test_context()
             ctx.severity = level
 
@@ -117,7 +117,7 @@ def tags(*tag_list: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             ctx = get_current_test_context()
 
             # Add tags to context
@@ -154,7 +154,7 @@ def attributes(**attrs: Any) -> Callable[[F], F]:
         if callable(obj) and not isinstance(obj, type):
             # Function decorator
             @wraps(obj)
-            def wrapper(*args: Any, **kwargs_call: Any):
+            def wrapper(*args: Any, **kwargs_call: Any) -> Any:
                 ctx = get_current_test_context()
                 ctx.metadata.update(attrs)
                 ctx.attributes.update(attrs)
@@ -169,7 +169,7 @@ def attributes(**attrs: Any) -> Callable[[F], F]:
         else:
             # Class decorator or other object
             obj.__proofy_attributes__ = attrs  # type: ignore[attr-defined]
-            return obj
+            return obj  # type: ignore[return-value]
 
     return decorator
 

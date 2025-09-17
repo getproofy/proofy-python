@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import pytest
 
@@ -148,15 +148,19 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
     Priority: CLI > ENV > pytest.ini > defaults
     """
 
-    def parse_bool(value: str) -> bool:
+    def parse_bool(value: str | bool) -> bool:
         """Parse boolean from string."""
         if isinstance(value, bool):
             return value
-        if isinstance(value, str):
-            return value.lower() in ("true", "1", "yes", "on")
-        return bool(value)
+        return value.lower() in ("true", "1", "yes", "on")
 
-    def get_option(name: str, env_name: str, ini_name: str, default=None, type_func=None):
+    def get_option(
+        name: str,
+        env_name: str,
+        ini_name: str,
+        default: Any = None,
+        type_func: Any = None,
+    ) -> Any:
         """Get option value with priority: CLI > ENV > INI > default."""
         # CLI option (highest priority)
         cli_value = config.getoption(name, default=None)
