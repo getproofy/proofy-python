@@ -88,7 +88,7 @@ class ProofyPluginManager:
         Returns:
             List of registered plugin instances
         """
-        return self._pm.get_plugins()
+        return self._pm.get_plugins()  # type: ignore[return-value]
 
     def has_plugin(self, name: str) -> bool:
         """Check if a plugin is registered by name.

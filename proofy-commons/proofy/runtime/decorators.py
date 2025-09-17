@@ -24,7 +24,7 @@ def name(value: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        def wrapper(*args: Any, **kwargs: Any):
             ctx = get_current_test_context()
             ctx.name = value
 
@@ -63,7 +63,7 @@ def description(text: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        def wrapper(*args: Any, **kwargs: Any):
             ctx = get_current_test_context()
             ctx.description = text
 
@@ -90,7 +90,7 @@ def severity(level: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        def wrapper(*args: Any, **kwargs: Any):
             ctx = get_current_test_context()
             ctx.severity = level
 
@@ -117,7 +117,7 @@ def tags(*tag_list: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        def wrapper(*args: Any, **kwargs: Any):
             ctx = get_current_test_context()
 
             # Add tags to context
@@ -154,7 +154,7 @@ def attributes(**attrs: Any) -> Callable[[F], F]:
         if callable(obj) and not isinstance(obj, type):
             # Function decorator
             @wraps(obj)
-            def wrapper(*args: Any, **kwargs_call: Any):  # type: ignore[misc]
+            def wrapper(*args: Any, **kwargs_call: Any):
                 ctx = get_current_test_context()
                 ctx.metadata.update(attrs)
                 ctx.attributes.update(attrs)
@@ -168,7 +168,7 @@ def attributes(**attrs: Any) -> Callable[[F], F]:
             return wrapper  # type: ignore[return-value]
         else:
             # Class decorator or other object
-            obj.__proofy_attributes__ = attrs
+            obj.__proofy_attributes__ = attrs  # type: ignore[attr-defined]
             return obj
 
     return decorator
@@ -201,41 +201,41 @@ def marker(**attrs: Any) -> Any:
 # ========== Convenience decorators for common attributes ==========
 
 
-def critical[F](func: F) -> F:
+def critical(func: F) -> F:
     """Mark test as critical severity."""
     return severity("critical")(func)
 
 
-def high[F](func: F) -> F:
+def high(func: F) -> F:
     """Mark test as high severity."""
     return severity("high")(func)
 
 
-def medium[F](func: F) -> F:
+def medium(func: F) -> F:
     """Mark test as medium severity."""
     return severity("medium")(func)
 
 
-def low[F](func: F) -> F:
+def low(func: F) -> F:
     """Mark test as low severity."""
     return severity("low")(func)
 
 
-def smoke[F](func: F) -> F:
+def smoke(func: F) -> F:
     """Mark test as smoke test."""
     return tags("smoke")(func)
 
 
-def regression[F](func: F) -> F:
+def regression(func: F) -> F:
     """Mark test as regression test."""
     return tags("regression")(func)
 
 
-def integration[F](func: F) -> F:
+def integration(func: F) -> F:
     """Mark test as integration test."""
     return tags("integration")(func)
 
 
-def unit[F](func: F) -> F:
+def unit(func: F) -> F:
     """Mark test as unit test."""
     return tags("unit")(func)

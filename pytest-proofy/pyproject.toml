@@ -59,6 +59,40 @@ precision = 2
 [tool.coverage.html]
 directory = "htmlcov"
 
+[tool.mypy]
+python_version = "3.10"
+strict = false
+warn_return_any = false
+warn_unused_configs = false
+disallow_untyped_defs = false
+disallow_any_generics = false
+no_implicit_optional = false
+warn_redundant_casts = false
+warn_unused_ignores = false
+warn_unreachable = false
+strict_equality = false
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pluggy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pytest.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "_pytest.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "proofy.*"
+ignore_missing_imports = true
+
 [project.entry-points.pytest11]
 proofy = "pytest_proofy.plugin"
 

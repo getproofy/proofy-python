@@ -73,7 +73,7 @@ class ProofyClient:
 
     # ========== Current Project API (send-based, for compatibility) ==========
 
-    def send_test_result(self, result: TestResult) -> requests.Response:
+    def send_test_result(self, result: TestResult) -> dict[str, Any]:
         """Send a single test result (current project compatibility)."""
         if result.server_id:
             # If we have server_id, this is an update
@@ -90,7 +90,8 @@ class ProofyClient:
             # New result - create it
             url = f"{self.base_url}/results"
             payload = result.to_dict()
-            return self.session.post(url, json=payload, timeout=self.timeout_s)
+            response = self.session.post(url, json=payload, timeout=self.timeout_s)
+            return response.json()
 
     def send_test_results(self, results: Iterable[TestResult]) -> requests.Response:
         """Send multiple test results in batch (current project compatibility)."""
@@ -256,7 +257,7 @@ class ProofyClient:
                 )
         else:
             # Bytes data
-            files.append(("file", (file_name, file, content_type)))
+            files.append(("file", (file_name, file, content_type)))  # type: ignore[arg-type]
             response = self._send_request(
                 "POST",
                 f"/api/v1/results/{result_id}/attachments",
@@ -271,7 +272,15 @@ class ProofyClient:
     @staticmethod
     def join_url(*args: str) -> str:
         """Join multiple URL components."""
-        return urllib.parse.urljoin(*args)
+        if len(args) == 0:
+            return ""
+        if len(args) == 1:
+            return args[0]
+
+        base = args[0]
+        for path in args[1:]:
+            base = urllib.parse.urljoin(base, path)
+        return base
 
     def _send_request(
         self,
@@ -289,7 +298,9 @@ class ProofyClient:
         request_headers = self.HEADERS.copy()
         if headers is not None:
             request_headers.update(headers)
-        request_headers.update({"Authorization": self.session.headers.get("Authorization", "")})
+        auth_header = self.session.headers.get("Authorization", "")
+        if isinstance(auth_header, str):
+            request_headers.update({"Authorization": auth_header})
 
         # Prepare data
         json_data = None
@@ -313,7 +324,10 @@ class ProofyClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending request to Proofy API: {e}")
             if hasattr(e, "response") and e.response is not None:
-                logger.error(f"Response content: {e.response.content}")
+                content = e.response.content
+                if isinstance(content, bytes):
+                    content = content.decode("utf-8", errors="replace")
+                logger.error(f"Response content: {content}")
             raise
 
     def _outcome_to_status(self, outcome: str | None) -> ResultStatus:

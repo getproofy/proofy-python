@@ -69,7 +69,7 @@ class ProofyPytestPlugin:
             return ctx.name
 
         # Use item name with class if available
-        if item.cls:
+        if hasattr(item, "cls") and item.cls:
             return f"{item.cls.__name__}::{item.name}"
         return item.name
 
@@ -269,7 +269,7 @@ def pytest_configure(config: pytest.Config) -> None:
     _plugin_instance = ProofyPytestPlugin(proofy_config)
 
     # Store plugin instance in config for access
-    config._proofy_plugin = _plugin_instance
+    config._proofy_plugin = _plugin_instance  # type: ignore[attr-defined]
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -333,7 +333,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> None:
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
     """Called to create test reports."""
     outcome = yield
     report = outcome.get_result()
