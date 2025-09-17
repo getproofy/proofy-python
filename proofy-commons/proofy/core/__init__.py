@@ -15,7 +15,7 @@ __all__ = [
     "ProofyClient",
     "TestResult",
     "Attachment",
-    "FixtureResult", 
+    "FixtureResult",
     "Property",
     "ResultStatus",
     "RunStatus",

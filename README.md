@@ -5,7 +5,7 @@ A unified framework for integrating Proofy test reporting with multiple Python t
 ## Supported Frameworks
 
 - ✅ **pytest** - Full featured pytest plugin
-- 🚧 **behave** - BDD testing with Gherkin syntax  
+- 🚧 **behave** - BDD testing with Gherkin syntax
 - 🚧 **unittest** - Standard Python unittest framework
 - 🚧 **nose2** - Unittest with plugin system
 
@@ -22,7 +22,7 @@ proofy-python-unified/
 │   │   └── export/         # JSON/ZIP export utilities
 │   └── tests/
 ├── pytest-proofy/          # Pytest adapter
-├── behave-proofy/           # Behave adapter  
+├── behave-proofy/           # Behave adapter
 ├── unittest-proofy/         # Unittest adapter
 └── nose2-proofy/            # Nose2 adapter
 ```
@@ -30,17 +30,20 @@ proofy-python-unified/
 ## Key Features
 
 ### Dual Processing System
+
 - **Live Mode**: Synchronous operations for real-time updates
 - **Lazy/Batch Mode**: Asynchronous background processing
 - **Smart Mode Selection**: Automatic based on configuration
 
 ### Unified API
+
 - Consistent interface across all testing frameworks
 - Server-generated ID support for live updates
 - Rich attachment and metadata support
 - Flexible configuration hierarchy
 
 ### Hook System
+
 - Extensible plugin architecture using pluggy
 - Framework-agnostic hook specifications
 - Easy custom plugin development
@@ -52,7 +55,7 @@ proofy-python-unified/
 ```bash
 # Install with specific framework support
 pip install proofy-python-unified[pytest]
-pip install proofy-python-unified[behave]  
+pip install proofy-python-unified[behave]
 pip install proofy-python-unified[unittest]
 pip install proofy-python-unified[nose2]
 
@@ -63,11 +66,13 @@ pip install proofy-python-unified[all]
 ### Basic Usage
 
 #### Pytest
+
 ```bash
 pytest --proofy-url https://api.proofy.io --proofy-token YOUR_TOKEN --proofy-mode live
 ```
 
 #### Behave
+
 ```bash
 behave -D proofy.url=https://api.proofy.io -D proofy.token=YOUR_TOKEN
 ```
@@ -94,9 +99,9 @@ from proofy.runtime import add_attachment, set_description, add_attributes
 def test_example():
     set_description("This is a comprehensive test")
     add_attributes(severity="high", component="auth")
-    
+
     # Your test code here
-    
+
     add_attachment("screenshot.png", name="failure_screenshot")
 ```
 
@@ -106,7 +111,7 @@ def test_example():
 from proofy.decorators import name, description, severity
 
 @name("User Login Test")
-@description("Tests user authentication flow")  
+@description("Tests user authentication flow")
 @severity("critical")
 def test_user_login():
     # Test implementation
@@ -116,10 +121,12 @@ def test_user_login():
 ## Development
 
 ### Prerequisites
+
 - Python 3.12+
 - uv (recommended) or pip
 
 ### Setup
+
 ```bash
 git clone <repository>
 cd proofy-python-unified
@@ -136,6 +143,7 @@ pip install -e ./proofy-commons -e ./pytest-proofy -e .[dev]
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest
@@ -149,6 +157,7 @@ pytest --cov=proofy --cov-report=html
 ```
 
 ### Code Quality
+
 ```bash
 # Format and lint
 ruff format
@@ -164,18 +173,21 @@ pre-commit run --all-files
 ## Modes
 
 ### Live Mode
+
 - Creates test results immediately when test starts
 - Real-time updates during test execution
 - Synchronous attachment uploads
 - Best for interactive development and debugging
 
 ### Lazy Mode (Default)
+
 - Collects results and sends after test completion
 - Background processing for better performance
 - Automatic retry with exponential backoff
 - Best for CI/CD environments
 
-### Batch Mode  
+### Batch Mode
+
 - Groups results and sends in configurable batches
 - Optimized for large test suites
 - Balances performance and real-time visibility

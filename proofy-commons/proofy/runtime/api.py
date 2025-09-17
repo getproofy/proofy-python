@@ -18,9 +18,10 @@ from .context import (
 
 # ========== Test Metadata API ==========
 
+
 def set_name(name: str, test_id: Optional[str] = None) -> None:
     """Set the display name for a test.
-    
+
     Args:
         name: New display name
         test_id: Target test ID (current test if None)
@@ -28,9 +29,9 @@ def set_name(name: str, test_id: Optional[str] = None) -> None:
     ctx = get_current_test_context()
     if test_id is None:
         test_id = ctx.test_id
-    
+
     ctx.name = name
-    
+
     # Trigger hook
     pm = get_plugin_manager()
     pm.hook.proofy_set_name(test_id=test_id, name=name)
@@ -38,7 +39,7 @@ def set_name(name: str, test_id: Optional[str] = None) -> None:
 
 def set_description(description: str, test_id: Optional[str] = None) -> None:
     """Set the description for a test.
-    
+
     Args:
         description: Test description
         test_id: Target test ID (current test if None)
@@ -46,9 +47,9 @@ def set_description(description: str, test_id: Optional[str] = None) -> None:
     ctx = get_current_test_context()
     if test_id is None:
         test_id = ctx.test_id
-    
+
     ctx.description = description
-    
+
     # Trigger hook
     pm = get_plugin_manager()
     pm.hook.proofy_set_description(test_id=test_id, description=description)
@@ -56,7 +57,7 @@ def set_description(description: str, test_id: Optional[str] = None) -> None:
 
 def set_severity(severity: str, test_id: Optional[str] = None) -> None:
     """Set the severity level for a test.
-    
+
     Args:
         severity: Severity level (e.g., 'critical', 'high', 'medium', 'low')
         test_id: Target test ID (current test if None)
@@ -64,9 +65,9 @@ def set_severity(severity: str, test_id: Optional[str] = None) -> None:
     ctx = get_current_test_context()
     if test_id is None:
         test_id = ctx.test_id
-    
+
     ctx.severity = severity
-    
+
     # Trigger hook
     pm = get_plugin_manager()
     pm.hook.proofy_set_severity(test_id=test_id, severity=severity)
@@ -74,7 +75,7 @@ def set_severity(severity: str, test_id: Optional[str] = None) -> None:
 
 def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None:
     """Add a metadata key-value pair to a test.
-    
+
     Args:
         key: Metadata key
         value: Metadata value
@@ -85,7 +86,7 @@ def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None:
 
 def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
     """Add multiple attributes to a test.
-    
+
     Args:
         test_id: Target test ID (current test if None)
         **kwargs: Attributes to add
@@ -95,7 +96,7 @@ def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
 
 def add_tag(tag: str, test_id: Optional[str] = None) -> None:
     """Add a tag to a test.
-    
+
     Args:
         tag: Tag to add
         test_id: Target test ID (current test if None)
@@ -105,7 +106,7 @@ def add_tag(tag: str, test_id: Optional[str] = None) -> None:
 
 def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
     """Add multiple tags to a test.
-    
+
     Args:
         tags: Tags to add
         test_id: Target test ID (current test if None)
@@ -114,6 +115,7 @@ def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
 
 
 # ========== Attachment API ==========
+
 
 def add_attachment(
     file: Union[str, Path],
@@ -124,7 +126,7 @@ def add_attachment(
     test_id: Optional[str] = None,
 ) -> None:
     """Add an attachment to a test.
-    
+
     Args:
         file: Path to the file to attach
         name: Display name for the attachment
@@ -133,11 +135,7 @@ def add_attachment(
         test_id: Target test ID (current test if None)
     """
     _add_attachment(
-        file=file,
-        name=name,
-        mime_type=mime_type,
-        extension=extension,
-        test_id=test_id
+        file=file, name=name, mime_type=mime_type, extension=extension, test_id=test_id
     )
 
 
@@ -151,7 +149,7 @@ def add_file(
     test_id: Optional[str] = None,
 ) -> None:
     """Add a file attachment to a test.
-    
+
     Args:
         file: Path to the file to attach
         name: Display name for the attachment
@@ -166,15 +164,16 @@ def add_file(
         content_type=content_type,
         mime_type=mime_type,
         extension=extension,
-        test_id=test_id
+        test_id=test_id,
     )
 
 
 # ========== Run Management API ==========
 
+
 def set_run_name(name: str) -> None:
     """Set the name for the current test run.
-    
+
     Args:
         name: New run name
     """
@@ -184,6 +183,7 @@ def set_run_name(name: str) -> None:
 
 # ========== Legacy Compatibility API (from old project) ==========
 
+
 def upload_file(
     file: str,
     name: str,
@@ -192,7 +192,7 @@ def upload_file(
     test_id: Optional[str] = None,
 ) -> None:
     """Legacy API for uploading files (compatibility with old project).
-    
+
     Args:
         file: File path
         name: File name
@@ -205,13 +205,13 @@ def upload_file(
         name=name,
         content_type=content_type,
         extension=extension,
-        test_id=test_id
+        test_id=test_id,
     )
 
 
 def add_run_name(name: str) -> None:
     """Legacy API for setting run name (compatibility with old project).
-    
+
     Args:
         name: Run name
     """
@@ -219,6 +219,7 @@ def add_run_name(name: str) -> None:
 
 
 # ========== Convenience Functions ==========
+
 
 def mark_as_critical(test_id: Optional[str] = None) -> None:
     """Mark test as critical severity."""
@@ -262,9 +263,10 @@ def tag_as_unit(test_id: Optional[str] = None) -> None:
 
 # ========== Context Information ==========
 
+
 def get_current_test_id() -> Optional[str]:
     """Get the current test ID.
-    
+
     Returns:
         Current test ID or None if not set
     """
@@ -274,7 +276,7 @@ def get_current_test_id() -> Optional[str]:
 
 def get_current_server_id() -> Optional[int]:
     """Get the current test's server-assigned ID.
-    
+
     Returns:
         Server ID or None if not set
     """
@@ -284,7 +286,7 @@ def get_current_server_id() -> Optional[int]:
 
 def get_current_run_id() -> Optional[int]:
     """Get the current run's server-assigned ID.
-    
+
     Returns:
         Run ID or None if not set
     """

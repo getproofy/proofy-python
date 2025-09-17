@@ -85,33 +85,28 @@ __all__ = [
     "__version__",
     "__author__",
     "__email__",
-    
     # Core models and enums
     "TestResult",
-    "Attachment", 
+    "Attachment",
     "FixtureResult",
     "Property",
     "ResultStatus",
     "RunStatus",
     "ProofyAttributes",
-    
     # Client
     "ProofyClient",
-    
     # Hook system
     "hookspec",
-    "hookimpl", 
+    "hookimpl",
     "get_plugin_manager",
     "ProofyPluginManager",
-    
     # Context management
     "TestContext",
     "SessionContext",
     "get_current_test_context",
     "set_current_test_context",
-    "get_current_session_context", 
+    "get_current_session_context",
     "set_current_session_context",
-    
     # Runtime API - Metadata
     "set_name",
     "set_description",
@@ -120,46 +115,39 @@ __all__ = [
     "add_attributes",
     "add_tag",
     "add_tags",
-    
     # Runtime API - Attachments
     "add_attachment",
     "add_file",
-    
     # Runtime API - Run management
     "set_run_name",
-    
     # Runtime API - Context info
     "get_current_test_id",
     "get_current_server_id",
     "get_current_run_id",
-    
     # Runtime API - Convenience
     "mark_as_critical",
-    "mark_as_high", 
+    "mark_as_high",
     "mark_as_medium",
     "mark_as_low",
     "tag_as_smoke",
     "tag_as_regression",
     "tag_as_integration",
     "tag_as_unit",
-    
     # Runtime API - Legacy compatibility
     "add_run_name",
     "upload_file",
-    
     # Decorators
     "name",
-    "title", 
+    "title",
     "description",
     "severity",
     "tags",
     "attributes",
     "marker",
-    
     # Decorator convenience
     "critical",
     "high",
-    "medium", 
+    "medium",
     "low",
     "smoke",
     "regression",

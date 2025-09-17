@@ -58,10 +58,10 @@ def test_example():
     set_description("This test validates user authentication")
     set_severity("critical")
     add_tag("auth")
-    
+
     # Your test code here
     assert user.login("valid_user", "valid_pass")
-    
+
     # Add attachment
     add_attachment("screenshot.png", name="success_screenshot")
 ```
@@ -89,7 +89,7 @@ class MyPlugin:
     @hookimpl
     def proofy_test_start(self, test_id, test_name, test_path):
         print(f"Starting test: {test_name}")
-    
+
     @hookimpl
     def proofy_test_finish(self, test_result):
         print(f"Finished test: {test_result.name} -> {test_result.outcome}")
@@ -137,25 +137,25 @@ class TestResult:
     id: str                           # Local ID (nodeid)
     name: str                         # Display name
     path: str                         # Test file path
-    
+
     # Server integration
     server_id: Optional[int] = None   # Server-assigned ID
     run_id: Optional[int] = None      # Run ID
-    
+
     # Execution details
     outcome: Optional[str] = None     # passed, failed, skipped, error
     status: Optional[ResultStatus] = None  # Enum format
-    
+
     # Timing
     duration_ms: Optional[float] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    
+
     # Metadata
     metadata: Dict[str, Any] = field(default_factory=dict)
     attributes: Dict[str, Any] = field(default_factory=dict)
     tags: List[str] = field(default_factory=list)
-    
+
     # Related data
     attachments: List[Attachment] = field(default_factory=list)
     fixtures: List[FixtureResult] = field(default_factory=list)
@@ -166,12 +166,12 @@ class TestResult:
 ```python
 class ProofyClient:
     def __init__(self, base_url: str, token: Optional[str] = None, timeout_s: float = 10.0)
-    
+
     # Current project compatibility
     def send_test_result(self, result: TestResult) -> requests.Response
     def send_test_results(self, results: Iterable[TestResult]) -> requests.Response
     def get_presigned_url(self, filename: str) -> requests.Response
-    
+
     # Old project compatibility (returns server IDs)
     def create_test_result(self, run_id: int, ...) -> int
     def create_test_result_batches(self, run_id: int, results: List[TestResult]) -> List[Dict]
@@ -219,16 +219,16 @@ def add_file(
 class ProofyHookSpecs:
     @hookspec
     def proofy_test_start(self, test_id: str, test_name: str, test_path: str) -> None
-    
+
     @hookspec
     def proofy_test_finish(self, test_result: TestResult) -> None
-    
+
     @hookspec
     def proofy_add_attachment(self, test_id: str, file_path: str, name: str) -> None
-    
+
     @hookspec
     def proofy_add_attributes(self, test_id: Optional[str], attributes: Dict[str, Any]) -> None
-    
+
     # ... and many more
 ```
 

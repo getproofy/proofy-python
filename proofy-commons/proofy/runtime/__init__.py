@@ -54,18 +54,17 @@ from .decorators import (
 __all__ = [
     # Context management
     "TestContext",
-    "SessionContext", 
+    "SessionContext",
     "get_current_test_context",
     "set_current_test_context",
     "get_current_session_context",
     "set_current_session_context",
-    
     # Runtime API
     "set_name",
     "set_description",
     "set_severity",
     "add_metadata",
-    "add_attributes", 
+    "add_attributes",
     "add_tag",
     "add_tags",
     "add_attachment",
@@ -76,19 +75,18 @@ __all__ = [
     "get_current_run_id",
     "mark_as_critical",
     "mark_as_high",
-    "mark_as_medium", 
+    "mark_as_medium",
     "mark_as_low",
     "tag_as_smoke",
     "tag_as_regression",
     "tag_as_integration",
     "tag_as_unit",
     "add_run_name",  # Legacy
-    "upload_file",   # Legacy
-    
+    "upload_file",  # Legacy
     # Decorators
     "name",
     "title",
-    "description", 
+    "description",
     "severity",
     "tags",
     "attributes",
@@ -98,7 +96,7 @@ __all__ = [
     "medium",
     "low",
     "smoke",
-    "regression", 
+    "regression",
     "integration",
     "unit",
 ]

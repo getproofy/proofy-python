@@ -6,7 +6,7 @@ from .specs import ProofyHookSpecs, hookimpl, hookspec
 __all__ = [
     "hookspec",
     "hookimpl",
-    "ProofyHookSpecs", 
+    "ProofyHookSpecs",
     "get_plugin_manager",
     "ProofyPluginManager",
     "reset_plugin_manager",

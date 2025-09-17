@@ -25,7 +25,7 @@ def convert_dict_to_key_value(data: Optional[Dict[str, Any]]) -> List[Dict[str, 
 
 class ProofyDataEncoder(json.JSONEncoder):
     """Custom JSON encoder for Proofy data types."""
-    
+
     def default(self, obj: Any) -> Any:
         if isinstance(obj, datetime):
             return obj.isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -36,22 +36,22 @@ class ProofyDataEncoder(json.JSONEncoder):
 
 class ProofyClient:
     """Unified Proofy API client supporting both sync and async patterns.
-    
-    Combines the simple send-based API (current project) with the 
+
+    Combines the simple send-based API (current project) with the
     create/update-based API (old project) that returns server IDs.
     """
-    
+
     HEADERS = {"Content-Type": "application/json", "Accept": "*/*"}
-    
+
     def __init__(
-        self, 
-        base_url: str, 
+        self,
+        base_url: str,
         token: Optional[str] = None,
         api_key: Optional[str] = None,  # Legacy compatibility
-        timeout_s: float = 10.0
+        timeout_s: float = 10.0,
     ) -> None:
         """Initialize the Proofy client.
-        
+
         Args:
             base_url: Base URL for the Proofy API
             token: Bearer token for authentication (preferred)
@@ -60,21 +60,20 @@ class ProofyClient:
         """
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
-        
+
         # Setup session
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "proofy-python-unified/0.1.0",
-            **self.HEADERS
-        })
-        
+        self.session.headers.update(
+            {"User-Agent": "proofy-python-unified/0.1.0", **self.HEADERS}
+        )
+
         # Authentication - prefer token over api_key
         auth_token = token or api_key
         if auth_token:
             self.session.headers.update({"Authorization": f"Bearer {auth_token}"})
-    
+
     # ========== Current Project API (send-based, for compatibility) ==========
-    
+
     def send_test_result(self, result: TestResult) -> requests.Response:
         """Send a single test result (current project compatibility)."""
         if result.server_id:
@@ -86,33 +85,33 @@ class ProofyClient:
                 duration=int(result.effective_duration_ms or 0),
                 message=result.message or result.error,
                 trace=result.trace or result.traceback,
-                attributes=result.merge_metadata()
+                attributes=result.merge_metadata(),
             )
         else:
             # New result - create it
             url = f"{self.base_url}/results"
             payload = result.to_dict()
             return self.session.post(url, json=payload, timeout=self.timeout_s)
-    
+
     def send_test_results(self, results: Iterable[TestResult]) -> requests.Response:
         """Send multiple test results in batch (current project compatibility)."""
         url = f"{self.base_url}/results/batch"
         payload: List[Dict[str, Any]] = [r.to_dict() for r in results]
         return self.session.post(url, json=payload, timeout=self.timeout_s)
-    
+
     def get_presigned_url(self, filename: str) -> requests.Response:
         """Get presigned URL for attachment upload (current project)."""
         url = f"{self.base_url}/attachments/presign"
         payload = {"filename": filename}
         return self.session.post(url, json=payload, timeout=self.timeout_s)
-    
+
     def confirm_attachment(self, attachment_id: str) -> requests.Response:
         """Confirm attachment upload (current project)."""
         url = f"{self.base_url}/attachments/{attachment_id}/confirm"
         return self.session.post(url, timeout=self.timeout_s)
-    
+
     # ========== Old Project API (create/update-based, returns server IDs) ==========
-    
+
     def create_test_run(
         self,
         project: int,
@@ -131,7 +130,7 @@ class ProofyClient:
                 "attributes": convert_dict_to_key_value(attributes),
             },
         ).json()
-    
+
     def update_test_run(
         self,
         run_id: int,
@@ -149,7 +148,7 @@ class ProofyClient:
                 "attributes": convert_dict_to_key_value(attributes),
             },
         ).json()
-    
+
     def create_test_result(
         self,
         run_id: int,
@@ -166,7 +165,7 @@ class ProofyClient:
         """Create a new test result and return its server-assigned ID."""
         if not run_id:
             raise ValueError("Run id cannot be None.")
-            
+
         response = self._send_request(
             "POST",
             f"/api/v1/runs/{int(run_id)}/results",
@@ -186,32 +185,32 @@ class ProofyClient:
         if not result_id:
             raise ValueError("Server did not return a result ID")
         return int(result_id)
-    
+
     def create_test_result_batches(
         self, run_id: int, results: List[TestResult]
     ) -> List[Dict[str, Any]]:
         """Create multiple test results in batch and return their IDs."""
         items = []
         for result in results:
-            items.append({
-                "name": result.name,
-                "path": result.path,
-                "status": result.status or self._outcome_to_status(result.outcome),
-                "start_time": result.start_time,
-                "end_time": result.end_time,
-                "duration": int(result.effective_duration_ms or 0),
-                "message": result.message or result.error,
-                "trace": result.trace or result.traceback,
-                "attributes": convert_dict_to_key_value(result.merge_metadata()),
-            })
-            
+            items.append(
+                {
+                    "name": result.name,
+                    "path": result.path,
+                    "status": result.status or self._outcome_to_status(result.outcome),
+                    "start_time": result.start_time,
+                    "end_time": result.end_time,
+                    "duration": int(result.effective_duration_ms or 0),
+                    "message": result.message or result.error,
+                    "trace": result.trace or result.traceback,
+                    "attributes": convert_dict_to_key_value(result.merge_metadata()),
+                }
+            )
+
         response = self._send_request(
-            "POST", 
-            f"/api/v1/runs/{run_id}/results:batch", 
-            data={"items": items}
+            "POST", f"/api/v1/runs/{run_id}/results:batch", data={"items": items}
         )
         return response.json().get("items", [])
-    
+
     def update_test_result(
         self,
         result_id: int,
@@ -235,7 +234,7 @@ class ProofyClient:
                 "attributes": convert_dict_to_key_value(attributes),
             },
         ).json()
-    
+
     def add_attachment(
         self,
         result_id: int,
@@ -245,7 +244,7 @@ class ProofyClient:
     ) -> Dict[str, Any]:
         """Add attachment to a test result."""
         files = []
-        
+
         if isinstance(file, (str, Path)):
             # File path
             with open(file, "rb") as f:
@@ -261,20 +260,20 @@ class ProofyClient:
             files.append(("file", (file_name, file, content_type)))
             response = self._send_request(
                 "POST",
-                f"/api/v1/results/{result_id}/attachments", 
+                f"/api/v1/results/{result_id}/attachments",
                 headers={},  # Remove content-type for multipart
                 files=files,
             )
-        
+
         return response.json()
-    
+
     # ========== Utility Methods ==========
-    
+
     @staticmethod
     def join_url(*args: str) -> str:
         """Join multiple URL components."""
         return urllib.parse.urljoin(*args)
-    
+
     def _send_request(
         self,
         method: Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
@@ -286,18 +285,20 @@ class ProofyClient:
     ) -> requests.Response:
         """Send HTTP request with proper error handling."""
         full_url = self.join_url(self.base_url, url)
-        
+
         # Prepare headers
         request_headers = self.HEADERS.copy()
         if headers is not None:
             request_headers.update(headers)
-        request_headers.update({"Authorization": self.session.headers.get("Authorization", "")})
-        
+        request_headers.update(
+            {"Authorization": self.session.headers.get("Authorization", "")}
+        )
+
         # Prepare data
         json_data = None
         if data and not files:
             json_data = json.dumps(data, cls=ProofyDataEncoder)
-            
+
         try:
             response = requests.request(
                 method=method,
@@ -311,18 +312,18 @@ class ProofyClient:
             )
             response.raise_for_status()
             return response
-            
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending request to Proofy API: {e}")
-            if hasattr(e, 'response') and e.response is not None:
+            if hasattr(e, "response") and e.response is not None:
                 logger.error(f"Response content: {e.response.content}")
             raise
-    
+
     def _outcome_to_status(self, outcome: Optional[str]) -> ResultStatus:
         """Convert outcome string to ResultStatus enum."""
         if not outcome:
             return ResultStatus.IN_PROGRESS
-            
+
         mapping = {
             "passed": ResultStatus.PASSED,
             "failed": ResultStatus.FAILED,

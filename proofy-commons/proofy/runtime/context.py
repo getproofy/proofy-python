@@ -13,38 +13,40 @@ from ..hooks.manager import get_plugin_manager
 @dataclass
 class TestContext:
     """Runtime context for a single test execution.
-    
+
     Holds per-test data that can be modified during test execution
     via decorators, runtime API calls, or hook implementations.
     """
-    
+
     __test__: ClassVar[bool] = False  # Prevent pytest from treating this as a test
-    
+
     # Test identification
     test_id: Optional[str] = None
-    
+
     # Display properties
     name: Optional[str] = None
     description: Optional[str] = None
     severity: Optional[str] = None
-    
+
     # Metadata and attributes
     metadata: Dict[str, Any] = field(default_factory=dict)
-    attributes: Dict[str, Any] = field(default_factory=dict)  # Old project compatibility
+    attributes: Dict[str, Any] = field(
+        default_factory=dict
+    )  # Old project compatibility
     tags: List[str] = field(default_factory=list)
-    
+
     # Attachments
     files: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     # Server integration
     server_id: Optional[int] = None  # Server-assigned test result ID
-    run_id: Optional[int] = None     # Server-assigned run ID
+    run_id: Optional[int] = None  # Server-assigned run ID
 
 
 @dataclass
 class SessionContext:
     """Runtime context for an entire test session."""
-    
+
     session_id: str
     run_name: Optional[str] = None
     run_id: Optional[int] = None
@@ -72,9 +74,10 @@ def _get_local_session_context() -> Optional[SessionContext]:
 
 # ========== Test Context Management ==========
 
+
 def set_current_test_context(ctx: Optional[TestContext]) -> None:
     """Set or clear the current test context for the active thread.
-    
+
     Args:
         ctx: Test context to set, or None to clear
     """
@@ -87,7 +90,7 @@ def set_current_test_context(ctx: Optional[TestContext]) -> None:
 
 def get_current_test_context() -> TestContext:
     """Get the current test context (auto-creates if missing).
-    
+
     Returns:
         TestContext: Current test context
     """
@@ -96,10 +99,10 @@ def get_current_test_context() -> TestContext:
 
 def get_test_context(test_id: str) -> Optional[TestContext]:
     """Get test context by ID from session context.
-    
+
     Args:
         test_id: Test identifier
-        
+
     Returns:
         TestContext if found, None otherwise
     """
@@ -111,9 +114,10 @@ def get_test_context(test_id: str) -> Optional[TestContext]:
 
 # ========== Session Context Management ==========
 
+
 def set_current_session_context(ctx: Optional[SessionContext]) -> None:
     """Set or clear the current session context.
-    
+
     Args:
         ctx: Session context to set, or None to clear
     """
@@ -126,7 +130,7 @@ def set_current_session_context(ctx: Optional[SessionContext]) -> None:
 
 def get_current_session_context() -> Optional[SessionContext]:
     """Get the current session context.
-    
+
     Returns:
         SessionContext if set, None otherwise
     """
@@ -135,9 +139,10 @@ def get_current_session_context() -> Optional[SessionContext]:
 
 # ========== Context Stack (for nested contexts) ==========
 
+
 def push_test_context(ctx: TestContext) -> None:
     """Push a new test context onto the stack.
-    
+
     Args:
         ctx: Test context to push
     """
@@ -149,14 +154,14 @@ def push_test_context(ctx: TestContext) -> None:
 
 def pop_test_context() -> Optional[TestContext]:
     """Pop the previous test context from the stack.
-    
+
     Returns:
         Previous test context, or None if stack is empty
     """
     stack = getattr(_LOCAL, "ctx_stack", [])
     if not stack:
         return None
-        
+
     previous_ctx = stack.pop()
     setattr(_LOCAL, "ctx_stack", stack)
     set_current_test_context(previous_ctx)
@@ -165,9 +170,10 @@ def pop_test_context() -> Optional[TestContext]:
 
 # ========== Metadata Management ==========
 
+
 def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None:
     """Add metadata to test context.
-    
+
     Args:
         key: Metadata key
         value: Metadata value
@@ -179,17 +185,19 @@ def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None:
             return
     else:
         ctx = _get_local_test_context()
-    
+
     ctx.metadata[key] = value
-    
+
     # Trigger hook
     pm = get_plugin_manager()
-    pm.hook.proofy_add_attributes(test_id=test_id or ctx.test_id, attributes={key: value})
+    pm.hook.proofy_add_attributes(
+        test_id=test_id or ctx.test_id, attributes={key: value}
+    )
 
 
 def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
     """Add multiple attributes to test context.
-    
+
     Args:
         test_id: Target test ID (current test if None)
         **kwargs: Attributes to add
@@ -200,10 +208,10 @@ def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
             return
     else:
         ctx = _get_local_test_context()
-    
+
     ctx.attributes.update(kwargs)
     ctx.metadata.update(kwargs)  # Also add to metadata for compatibility
-    
+
     # Trigger hook
     pm = get_plugin_manager()
     pm.hook.proofy_add_attributes(test_id=test_id or ctx.test_id, attributes=kwargs)
@@ -211,7 +219,7 @@ def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
 
 def add_tag(tag: str, test_id: Optional[str] = None) -> None:
     """Add a tag to test context.
-    
+
     Args:
         tag: Tag to add
         test_id: Target test ID (current test if None)
@@ -222,10 +230,10 @@ def add_tag(tag: str, test_id: Optional[str] = None) -> None:
             return
     else:
         ctx = _get_local_test_context()
-    
+
     if tag not in ctx.tags:
         ctx.tags.append(tag)
-        
+
         # Trigger hook
         pm = get_plugin_manager()
         pm.hook.proofy_add_tags(test_id=test_id or ctx.test_id, tags=[tag])
@@ -233,7 +241,7 @@ def add_tag(tag: str, test_id: Optional[str] = None) -> None:
 
 def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
     """Add multiple tags to test context.
-    
+
     Args:
         tags: Tags to add
         test_id: Target test ID (current test if None)
@@ -244,13 +252,13 @@ def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
             return
     else:
         ctx = _get_local_test_context()
-    
+
     new_tags = []
     for tag in tags:
         if tag not in ctx.tags:
             ctx.tags.append(tag)
             new_tags.append(tag)
-    
+
     if new_tags:
         # Trigger hook
         pm = get_plugin_manager()
@@ -258,6 +266,7 @@ def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
 
 
 # ========== Attachment Management ==========
+
 
 def add_file(
     file: Union[str, Path],
@@ -269,7 +278,7 @@ def add_file(
     test_id: Optional[str] = None,
 ) -> None:
     """Add a file attachment to test context.
-    
+
     Args:
         file: Path to the file
         name: Display name for the attachment
@@ -284,10 +293,10 @@ def add_file(
             return
     else:
         ctx = _get_local_test_context()
-    
+
     # Use mime_type if content_type not provided
     final_content_type = content_type or mime_type
-    
+
     file_info = {
         "name": name,
         "path": str(file),
@@ -295,16 +304,16 @@ def add_file(
         "mime_type": final_content_type,  # Compatibility
         "extension": extension,
     }
-    
+
     ctx.files.append(file_info)
-    
+
     # Trigger hook
     pm = get_plugin_manager()
     pm.hook.proofy_add_attachment(
         test_id=test_id or ctx.test_id,
         file_path=str(file),
         name=name,
-        mime_type=final_content_type
+        mime_type=final_content_type,
     )
 
 
@@ -317,7 +326,7 @@ def add_attachment(
     test_id: Optional[str] = None,
 ) -> None:
     """Add an attachment to test context (convenience wrapper for add_file).
-    
+
     Args:
         file: Path to the file
         name: Display name for the attachment
@@ -326,9 +335,5 @@ def add_attachment(
         test_id: Target test ID (current test if None)
     """
     add_file(
-        file=file,
-        name=name,
-        mime_type=mime_type,
-        extension=extension,
-        test_id=test_id
+        file=file, name=name, mime_type=mime_type, extension=extension, test_id=test_id
     )
