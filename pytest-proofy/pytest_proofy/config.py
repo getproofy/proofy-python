@@ -148,6 +148,14 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
     Priority: CLI > ENV > pytest.ini > defaults
     """
 
+    def parse_bool(value: str) -> bool:
+        """Parse boolean from string."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.lower() in ("true", "1", "yes", "on")
+        return bool(value)
+
     def get_option(name: str, env_name: str, ini_name: str, default=None, type_func=None):
         """Get option value with priority: CLI > ENV > INI > default."""
         # CLI option (highest priority)
@@ -160,6 +168,8 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
         if env_value is not None:
             if type_func:
                 try:
+                    if type_func is bool:
+                        return parse_bool(env_value)
                     return type_func(env_value)
                 except (ValueError, TypeError):
                     return default
@@ -170,6 +180,8 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
         if ini_value:
             if type_func:
                 try:
+                    if type_func is bool:
+                        return parse_bool(ini_value)
                     return type_func(ini_value)
                 except (ValueError, TypeError):
                     return default

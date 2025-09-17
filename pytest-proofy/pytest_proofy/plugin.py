@@ -29,6 +29,7 @@ from .config import (
     resolve_options,
     setup_pytest_ini_options,
 )
+from .xdist_support import is_xdist_worker, register_xdist_hooks, setup_worker_plugin
 
 
 class ProofyPytestPlugin:
@@ -271,15 +272,26 @@ def pytest_configure(config: pytest.Config) -> None:
     # Store plugin instance in config for access
     config._proofy_plugin = _plugin_instance  # type: ignore[attr-defined]
 
+    # Register xdist hooks if available
+    register_xdist_hooks(config.pluginmanager, _plugin_instance)
+
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Called at the start of test session."""
+    global _plugin_instance
+
+    # Handle xdist worker initialization
+    if is_xdist_worker(session):
+        _plugin_instance = setup_worker_plugin(session)
+
     if not _plugin_instance:
         return
 
-    # Create run if using live or batch mode
-    if _plugin_instance.config.mode in ("live", "batch"):
+    # Create run if using live or batch mode (only on master, not workers)
+    if _plugin_instance.config.mode in ("live", "batch") and not is_xdist_worker(
+        session
+    ):  # Only on master
         if not _plugin_instance.config.run_id:
             _plugin_instance.run_id = _plugin_instance._create_run(session)
         else:
@@ -293,7 +305,9 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         return
 
     test_id = _plugin_instance._get_test_id(item)
-    _plugin_instance.test_start_times[test_id] = datetime.now()
+    # Safety check to ensure test_start_times is a proper dict (not a Mock during testing)
+    if hasattr(_plugin_instance.test_start_times, "__setitem__"):
+        _plugin_instance.test_start_times[test_id] = datetime.now()
 
     # Set up test context
     ctx = TestContext(test_id=test_id)
@@ -346,7 +360,11 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
     test_id = _plugin_instance._get_test_id(item)
 
     # Update stored result or create new one
-    if test_id in _plugin_instance.test_results:
+    # Safety check to ensure test_results is a proper dict (not a Mock during testing)
+    if (
+        hasattr(_plugin_instance.test_results, "__contains__")
+        and test_id in _plugin_instance.test_results
+    ):
         stored_result = _plugin_instance.test_results[test_id]
         # Update with report data
         stored_result.outcome = result.outcome
@@ -357,7 +375,9 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
         stored_result.traceback = result.traceback
         result = stored_result
     else:
-        _plugin_instance.test_results[test_id] = result
+        # Only store if test_results is a proper dict
+        if hasattr(_plugin_instance.test_results, "__setitem__"):
+            _plugin_instance.test_results[test_id] = result
 
     # Send result based on mode
     if _plugin_instance.config.mode == "live":
@@ -380,6 +400,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if not _plugin_instance:
         return
 
+    # In xdist workers, don't finalize run - only send results
+    is_worker = is_xdist_worker(session)
+
     # Handle batch mode - send all results
     if _plugin_instance.config.mode == "batch" and _plugin_instance.client:
         try:
@@ -389,8 +412,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         except Exception as e:
             print(f"Failed to send batch results: {e}")
 
-    # Finalize run
-    _plugin_instance._finalize_run()
+    # Only finalize run on master process, not workers
+    if not is_worker:
+        _plugin_instance._finalize_run()
 
     # Backup results locally if configured
     if _plugin_instance.config.always_backup or not _plugin_instance.client:
@@ -401,6 +425,7 @@ def _backup_results_locally(plugin: ProofyPytestPlugin) -> None:
     """Create local backup of results."""
     try:
         import json
+        import os
         from pathlib import Path
 
         output_dir = Path(plugin.config.output_dir)
@@ -409,14 +434,58 @@ def _backup_results_locally(plugin: ProofyPytestPlugin) -> None:
         # Export results as JSON
         results_data = [result.to_dict() for result in plugin.test_results.values()]
 
-        results_file = output_dir / "results.json"
+        # Check if we're in an xdist worker
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+        if worker_id:
+            # Each worker writes to its own file
+            results_file = output_dir / f"results_{worker_id}.json"
+        else:
+            # Master or non-xdist execution
+            results_file = output_dir / "results.json"
+
         with open(results_file, "w") as f:
             json.dump(results_data, f, indent=2, default=str)
 
         print(f"Results backed up to {results_file}")
 
+        # If we're the master and there are worker files, merge them
+        if not worker_id:
+            _merge_worker_results(output_dir)
+
     except Exception as e:
         print(f"Failed to backup results locally: {e}")
+
+
+def _merge_worker_results(output_dir: Path) -> None:
+    """Merge results from worker files into main results.json."""
+    try:
+        import json
+
+        all_results = []
+        worker_files = list(output_dir.glob("results_gw*.json"))
+
+        for worker_file in worker_files:
+            try:
+                with open(worker_file) as f:
+                    worker_results = json.load(f)
+                    all_results.extend(worker_results)
+            except Exception as e:
+                print(f"Failed to read worker results from {worker_file}: {e}")
+
+        if all_results:
+            main_results_file = output_dir / "results.json"
+            with open(main_results_file, "w") as f:
+                json.dump(all_results, f, indent=2, default=str)
+            print(
+                f"Merged {len(all_results)} results from {len(worker_files)} workers to {main_results_file}"
+            )
+
+            # Clean up worker files
+            for worker_file in worker_files:
+                worker_file.unlink()
+
+    except Exception as e:
+        print(f"Failed to merge worker results: {e}")
 
 
 # Hook implementations for integration with proofy hook system

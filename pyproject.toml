@@ -64,7 +64,7 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-line-ending = "lf"
+
 
 [tool.pytest.ini_options]
 addopts = "-q --strict-markers"
@@ -79,6 +79,7 @@ markers = [
     "unit: Unit tests",
     "integration: Integration tests",
     "e2e: End-to-end tests",
+    "slow: Slow running tests",
 ]
 
 [tool.mypy]

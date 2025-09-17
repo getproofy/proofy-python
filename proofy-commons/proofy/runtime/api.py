@@ -6,27 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from ..hooks.manager import get_plugin_manager
-from .context import (
-    add_attachment as _add_attachment,
-)
-from .context import (
-    add_attributes as _add_attributes,
-)
-from .context import (
-    add_file as _add_file,
-)
-from .context import (
-    add_metadata as _add_metadata,
-)
-from .context import (
-    add_tag as _add_tag,
-)
-from .context import (
-    add_tags as _add_tags,
-)
-from .context import (
-    get_current_test_context,
-)
+from .context import add_attachment as _add_attachment
+from .context import add_attributes as _add_attributes
+from .context import add_file as _add_file
+from .context import add_metadata as _add_metadata
+from .context import add_tag as _add_tag
+from .context import add_tags as _add_tags
+from .context import get_current_test_context
 
 # ========== Test Metadata API ==========
 

@@ -40,12 +40,6 @@ repos:
   #       args: [-r, -x, tests/]
   #       files: ^(proofy-commons/proofy|pytest-proofy/pytest_proofy)/
 
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: [--profile, black, --check-only, --diff]
-
   # Poetry check disabled - we use standard pyproject.toml not poetry
   # - repo: https://github.com/python-poetry/poetry
   #   rev: 1.7.1
@@ -55,22 +49,6 @@ repos:
 
   - repo: local
     hooks:
-      - id: pytest-commons
-        name: Run proofy-commons tests
-        entry: bash -c 'cd proofy-commons && python3 -m pytest tests/ -x -q'
-        language: system
-        files: ^proofy-commons/
-        types: [python]
-        pass_filenames: false
-
-      - id: pytest-plugin
-        name: Run pytest-proofy tests
-        entry: bash -c 'cd pytest-proofy && python3 -m pytest tests/ -x -q -p no:proofy'
-        language: system
-        files: ^pytest-proofy/
-        types: [python]
-        pass_filenames: false
-
       - id: check-version-consistency
         name: Check version consistency
         entry: python3

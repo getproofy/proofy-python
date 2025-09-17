@@ -141,7 +141,7 @@ jobs:
           python -m coverage report
           python -m coverage xml
           echo "::endgroup::"
-          
+
           echo "::group::Coverage for pytest-proofy"
           cd ../pytest-proofy
           python -m coverage run -m pytest tests/ -p no:proofy
@@ -181,7 +181,7 @@ jobs:
           cat > integration-test/test_sample.py << 'EOF'
           import pytest
           from proofy import name, description, severity, add_attachment, add_tag
-          
+
           @name("Sample Integration Test")
           @description("Test to verify pytest-proofy integration works")
           @severity("high")
@@ -189,19 +189,19 @@ jobs:
               """Sample test with proofy decorators."""
               add_tag("integration")
               add_tag("ci")
-              
+
               # Create a sample file to attach
               with open("sample.txt", "w") as f:
                   f.write("This is a sample attachment from CI")
-              
+
               add_attachment("sample.txt", name="CI Sample File")
-              
+
               assert True, "Integration test should pass"
-          
+
           def test_simple_pass():
               """Simple test without proofy decorators."""
               assert 1 + 1 == 2
-          
+
           def test_simple_fail():
               """Test that should fail to verify error handling."""
               pytest.skip("Skipping intentional failure in CI")
@@ -343,7 +343,7 @@ jobs:
           echo "Integration tests: ${{ needs.integration-test.result }}"
           echo "Security scan: ${{ needs.security-scan.result }}"
           echo "Build check: ${{ needs.build-check.result }}"
-          
+
           if [[ "${{ needs.lint-and-format.result }}" == "success" && \
                 "${{ needs.type-check.result }}" == "success" && \
                 "${{ needs.test.result }}" == "success" && \

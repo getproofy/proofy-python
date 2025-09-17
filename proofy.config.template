@@ -1,0 +1,45 @@
+# Proofy Plugin Configuration Template
+# Copy this file to .env and update with your actual values
+
+# API Configuration
+PROOFY_API_BASE=https://api.proofy.io
+PROOFY_TOKEN=your_api_token_here
+PROOFY_PROJECT_ID=123
+
+# Plugin Behavior
+PROOFY_MODE=batch
+PROOFY_BATCH_SIZE=50
+PROOFY_TIMEOUT_S=30.0
+PROOFY_MAX_RETRIES=3
+PROOFY_RETRY_DELAY=1.0
+
+# Features
+PROOFY_ENABLE_ATTACHMENTS=true
+PROOFY_ENABLE_HOOKS=true
+
+# Local Backup
+PROOFY_ALWAYS_BACKUP=true
+PROOFY_OUTPUT_DIR=./proofy-artifacts
+
+# Run Configuration (optional - usually set via CLI)
+# PROOFY_RUN_ID=
+# PROOFY_RUN_NAME=
+
+# Test Environment Variables (for testing different scenarios)
+# Uncomment these for specific test scenarios:
+
+# Test with live mode
+# PROOFY_MODE=live
+
+# Test with lazy mode
+# PROOFY_MODE=lazy
+
+# Test without API (local only)
+# PROOFY_API_BASE=
+# PROOFY_TOKEN=
+
+# Test with custom output directory
+# PROOFY_OUTPUT_DIR=./test-results
+
+# Debug mode (for development)
+# PROOFY_DEBUG=true

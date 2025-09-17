@@ -32,7 +32,7 @@ jobs:
         id: check-updates
         run: |
           echo "Checking for dependency updates..."
-          
+
           # Check proofy-commons
           cd proofy-commons
           if pip-compile --upgrade --dry-run pyproject.toml > /dev/null 2>&1; then
@@ -40,7 +40,7 @@ jobs:
           else
             echo "proofy-commons-updates=false" >> $GITHUB_OUTPUT
           fi
-          
+
           # Check pytest-proofy
           cd ../pytest-proofy
           if pip-compile --upgrade --dry-run pyproject.toml > /dev/null 2>&1; then
@@ -58,18 +58,18 @@ jobs:
           title: "chore: Update dependencies"
           body: |
             ## Dependency Updates
-            
+
             This PR updates project dependencies to their latest versions.
-            
+
             ### Changes
             - Automated dependency updates
             - Security patches included
-            
+
             ### Testing
             - [ ] All tests pass
             - [ ] No breaking changes detected
             - [ ] Security scan clean
-            
+
             ---
             *This PR was created automatically by the dependency update workflow.*
           branch: chore/update-dependencies
@@ -141,7 +141,7 @@ jobs:
           echo "::group::Outdated packages report"
           pip list --outdated --format=columns || true
           echo "::endgroup::"
-          
+
           echo "::group::Dependency tree"
           pip show proofy-commons pytest-proofy
           echo "::endgroup::"

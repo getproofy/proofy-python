@@ -24,14 +24,14 @@ jobs:
         run: |
           TAG=${GITHUB_REF#refs/tags/v}
           echo "version=$TAG" >> $GITHUB_OUTPUT
-          
+
           # Check if it's a pre-release (contains alpha, beta, rc, dev)
           if [[ "$TAG" =~ (alpha|beta|rc|dev) ]]; then
             echo "is-prerelease=true" >> $GITHUB_OUTPUT
           else
             echo "is-prerelease=false" >> $GITHUB_OUTPUT
           fi
-          
+
           echo "Releasing version: $TAG"
           echo "Pre-release: ${{ steps.get-version.outputs.is-prerelease }}"
 
@@ -60,7 +60,7 @@ jobs:
           echo "::group::Testing proofy-commons"
           cd proofy-commons && python -m pytest tests/ -v
           echo "::endgroup::"
-          
+
           echo "::group::Testing pytest-proofy"
           cd pytest-proofy && python -m pytest tests/ -v -p no:proofy
           echo "::endgroup::"
@@ -97,13 +97,13 @@ jobs:
       - name: Update version in packages
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
-          
+
           # Update proofy-commons version
           sed -i "s/version = \".*\"/version = \"$VERSION\"/" proofy-commons/pyproject.toml
-          
+
           # Update pytest-proofy version
           sed -i "s/version = \".*\"/version = \"$VERSION\"/" pytest-proofy/pyproject.toml
-          
+
           # Update pytest-proofy dependency on proofy-commons
           sed -i "s/proofy-commons>=.*/proofy-commons>=$VERSION\"/" pytest-proofy/pyproject.toml
 
@@ -153,13 +153,13 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
-          
+
           # Get previous tag for changelog
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          
+
           echo "## Changes in v$VERSION" > changelog.md
           echo "" >> changelog.md
-          
+
           if [ -n "$PREV_TAG" ]; then
             echo "### Commits since $PREV_TAG:" >> changelog.md
             git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD >> changelog.md
@@ -167,7 +167,7 @@ jobs:
             echo "### All commits in this release:" >> changelog.md
             git log --pretty=format:"- %s (%h)" >> changelog.md
           fi
-          
+
           echo "" >> changelog.md
           echo "### Packages in this release:" >> changelog.md
           echo "- proofy-commons v$VERSION" >> changelog.md
@@ -189,7 +189,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-tag, create-release]
     if: needs.validate-tag.outputs.is-prerelease == 'false'  # Only publish stable releases
-    environment: 
+    environment:
       name: pypi
       url: https://pypi.org/project/proofy-commons/
     permissions:
@@ -255,7 +255,7 @@ jobs:
           echo "## Release v$VERSION Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **GitHub Release**: Created successfully" >> $GITHUB_STEP_SUMMARY
-          
+
           if [[ "${{ needs.validate-tag.outputs.is-prerelease }}" == "false" ]]; then
             if [[ "${{ needs.publish-to-pypi.result }}" == "success" ]]; then
               echo "✅ **PyPI**: Published successfully" >> $GITHUB_STEP_SUMMARY
@@ -267,7 +267,7 @@ jobs:
           else
             echo "ℹ️ **Pre-release**: Published to Test PyPI only" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Installation" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY

@@ -245,7 +245,7 @@ class ProofyClient:
         """Add attachment to a test result."""
         files = []
 
-        if isinstance(file, (str, Path)):
+        if isinstance(file, str | Path):
             # File path
             with open(file, "rb") as f:
                 files.append(("file", (file_name, f, content_type)))
