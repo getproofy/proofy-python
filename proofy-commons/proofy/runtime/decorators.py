@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from ..hooks.manager import get_plugin_manager
 from .context import get_current_test_context
@@ -34,7 +34,7 @@ def name(value: str) -> Callable[[F], F]:
 
             return func(*args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -73,7 +73,7 @@ def description(text: str) -> Callable[[F], F]:
 
             return func(*args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -100,7 +100,7 @@ def severity(level: str) -> Callable[[F], F]:
 
             return func(*args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -134,7 +134,7 @@ def tags(*tag_list: str) -> Callable[[F], F]:
 
             return func(*args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -165,11 +165,10 @@ def attributes(**attrs: Any) -> Callable[[F], F]:
 
                 return obj(*args, **kwargs_call)
 
-            return wrapper  # type: ignore[return-value]
+            return cast(F, wrapper)
         else:
-            # Class decorator or other object
-            obj.__proofy_attributes__ = attrs  # type: ignore[attr-defined]
-            return obj  # type: ignore[return-value]
+            setattr(obj, "__proofy_attributes__", attrs)  # noqa: B010
+            return cast(F, obj)
 
     return decorator
 

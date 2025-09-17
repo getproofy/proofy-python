@@ -313,7 +313,7 @@ def add_file(
 
     file_info = {
         "name": name,
-        "path": str(path_to_store),
+        "path": path_to_store.as_posix(),
         "original_path": str(original_path),
         "content_type": final_content_type,
         "mime_type": final_content_type,  # Compatibility
@@ -326,7 +326,7 @@ def add_file(
     pm = get_plugin_manager()
     pm.hook.proofy_add_attachment(
         test_id=test_id or ctx.test_id,
-        file_path=str(path_to_store),
+        file_path=path_to_store.as_posix(),
         name=name,
         mime_type=final_content_type,
     )
