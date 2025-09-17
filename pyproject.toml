@@ -59,7 +59,6 @@ select = [
 ]
 ignore = [
     "E501", # line too long (handled by formatter)
-   #  "UP047", # Generic function type parameters (Python 3.12+ only)
 ]
 
 [tool.ruff.format]
