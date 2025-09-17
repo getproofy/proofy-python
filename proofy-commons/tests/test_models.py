@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from proofy.core.models import Attachment, ResultStatus, TestResult
+from proofy.core.models import Attachment, ResultStatus, RunStatus, TestResult
 
 
 class TestTestResult:
@@ -47,19 +47,14 @@ class TestTestResult:
             name="Test 1",
             path="/test1.py",
             duration_ms=1500.0,
-            duration=2000,
         )
         assert result.effective_duration_ms == 1500.0
-
-        # Test duration fallback
-        result = TestResult(id="test2", name="Test 2", path="/test2.py", duration=2000)
-        assert result.effective_duration_ms == 2000.0
 
         # Test calculated from timestamps
         start = datetime(2023, 1, 1, 12, 0, 0)
         end = datetime(2023, 1, 1, 12, 0, 1, 500000)  # +1.5 seconds
         result = TestResult(
-            id="test3", name="Test 3", path="/test3.py", start_time=start, end_time=end
+            id="test3", name="Test 3", path="/test3.py", started_at=start, ended_at=end
         )
         assert result.effective_duration_ms == 1500.0
 
@@ -71,17 +66,15 @@ class TestTestResult:
             path="/test1.py",
             metadata={"key1": "value1"},
             attributes={"key2": "value2"},
-            meta_data={"key3": "value3"},
         )
 
         merged = result.merge_metadata()
         assert merged["key1"] == "value1"
         assert merged["key2"] == "value2"
-        assert merged["key3"] == "value3"
 
     def test_to_dict(self):
         """Test to_dict serialization."""
-        start_time = datetime(2023, 1, 1, 12, 0, 0)
+        started_at = datetime(2023, 1, 1, 12, 0, 0)
 
         result = TestResult(
             id="test1",
@@ -89,7 +82,7 @@ class TestTestResult:
             path="/test1.py",
             outcome="passed",
             status=ResultStatus.PASSED,
-            start_time=start_time,
+            started_at=started_at,
             metadata={"key": "value"},
         )
 
@@ -99,7 +92,7 @@ class TestTestResult:
         assert data["name"] == "Test 1"
         assert data["outcome"] == "passed"
         assert data["status"] == 1  # ResultStatus.PASSED.value
-        assert data["start_time"] == start_time.isoformat()
+        assert data["started_at"] == started_at.isoformat() + "Z"  # RFC 3339 format
         assert data["metadata"]["key"] == "value"
 
 
@@ -129,3 +122,14 @@ class TestResultStatus:
         assert ResultStatus.BROKEN.value == 3
         assert ResultStatus.SKIPPED.value == 4
         assert ResultStatus.IN_PROGRESS.value == 5
+
+
+class TestRunStatus:
+    """Tests for RunStatus enum."""
+
+    def test_enum_values(self):
+        """Test enum values match expected integers."""
+        assert RunStatus.STARTED.value == 1
+        assert RunStatus.FINISHED.value == 2
+        assert RunStatus.ABORTED.value == 3
+        assert RunStatus.TIMEOUT.value == 4

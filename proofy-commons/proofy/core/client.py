@@ -17,11 +17,17 @@ from .models import ResultStatus, RunStatus, TestResult
 logger = logging.getLogger(__name__)
 
 
-def convert_dict_to_key_value(data: dict[str, Any] | None) -> list[dict[str, Any]]:
-    """Convert dictionary to key-value format for API compatibility."""
-    if not data:
-        return []
-    return [{"key": str(k), "value": str(v)} for k, v in data.items()]
+def format_datetime_rfc3339(dt: datetime | str) -> str:
+    """Format datetime to RFC 3339 format."""
+    if isinstance(dt, str):
+        return dt  # Already formatted, assume it's correct
+
+    if dt.tzinfo is None:
+        # Assume UTC if no timezone info
+        return dt.isoformat() + "Z"
+    else:
+        # Use timezone-aware formatting
+        return dt.isoformat()
 
 
 class ProofyDataEncoder(json.JSONEncoder):
@@ -29,7 +35,7 @@ class ProofyDataEncoder(json.JSONEncoder):
 
     def default(self, obj: Any) -> Any:
         if isinstance(obj, datetime):
-            return obj.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+            return format_datetime_rfc3339(obj)
         elif isinstance(obj, Path):
             return str(obj)
         return super().default(obj)
@@ -75,15 +81,15 @@ class ProofyClient:
 
     def send_test_result(self, result: TestResult) -> dict[str, Any]:
         """Send a single test result (current project compatibility)."""
-        if result.server_id:
+        if result.server_id and result.run_id:
             # If we have server_id, this is an update
             return self.update_test_result(
+                run_id=result.run_id,
                 result_id=result.server_id,
                 status=result.status or self._outcome_to_status(result.outcome),
-                end_time=result.end_time or datetime.now(),
-                duration=int(result.effective_duration_ms or 0),
-                message=result.message or result.error,
-                trace=result.trace or result.traceback,
+                ended_at=result.ended_at or datetime.now(),
+                duration_ms=int(result.effective_duration_ms or 0),
+                message=result.message or result.traceback,
                 attributes=result.merge_metadata(),
             )
         else:
@@ -124,12 +130,12 @@ class ProofyClient:
             dict[str, Any],
             self._send_request(
                 "POST",
-                "/api/v1/runs",
+                "/v1/runs",
                 data={
                     "project_id": project,
                     "name": name,
-                    "status": status,
-                    "attributes": convert_dict_to_key_value(attributes),
+                    "started_at": format_datetime_rfc3339(datetime.now()),
+                    "attributes": attributes or {},
                 },
             ).json(),
         )
@@ -138,7 +144,7 @@ class ProofyClient:
         self,
         run_id: int,
         status: RunStatus,
-        end_time: str | datetime,
+        ended_at: str | datetime,
         attributes: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update an existing test run."""
@@ -146,11 +152,11 @@ class ProofyClient:
             dict[str, Any],
             self._send_request(
                 "PATCH",
-                f"/api/v1/runs/{run_id}",
+                f"/v1/runs/{run_id}",
                 data={
                     "status": status,
-                    "end_time": end_time,
-                    "attributes": convert_dict_to_key_value(attributes),
+                    "ended_at": format_datetime_rfc3339(ended_at),
+                    "attributes": attributes or {},
                 },
             ).json(),
         )
@@ -160,32 +166,39 @@ class ProofyClient:
         run_id: int,
         display_name: str,
         path: str,
-        status: int | ResultStatus,
-        start_time: str | datetime,
-        end_time: str | datetime,
-        duration: int = 0,
+        status: int | ResultStatus | None = None,
+        started_at: str | datetime | None = None,
+        ended_at: str | datetime | None = None,
+        duration_ms: int = 0,
         message: str | None = None,
-        trace: str | None = None,
         attributes: dict[str, Any] | None = None,
     ) -> int:
         """Create a new test result and return its server-assigned ID."""
         if not run_id:
             raise ValueError("Run id cannot be None.")
 
+        data: dict[str, Any] = {
+            "name": display_name,
+            "path": path,
+            "attributes": attributes or {},
+        }
+
+        # Add optional fields only if provided
+        if status is not None:
+            data["status"] = status
+        if started_at is not None:
+            data["started_at"] = format_datetime_rfc3339(started_at)
+        if ended_at is not None:
+            data["ended_at"] = format_datetime_rfc3339(ended_at)
+        if duration_ms > 0:
+            data["duration_ms"] = duration_ms
+        if message:
+            data["message"] = message
+
         response = self._send_request(
             "POST",
-            f"/api/v1/runs/{int(run_id)}/results",
-            data={
-                "name": display_name,
-                "path": path,
-                "status": status,
-                "start_time": start_time,
-                "end_time": end_time,
-                "duration": duration,
-                "message": message,
-                "trace": trace,
-                "attributes": convert_dict_to_key_value(attributes),
-            },
+            f"/v1/runs/{int(run_id)}/results",
+            data=data,
         )
         result_id = response.json().get("id")
         if not result_id:
@@ -196,84 +209,117 @@ class ProofyClient:
         self, run_id: int, results: list[TestResult]
     ) -> list[dict[str, Any]]:
         """Create multiple test results in batch and return their IDs."""
-        items = []
+        items: list[dict[str, Any]] = []
         for result in results:
-            items.append(
-                {
-                    "name": result.name,
-                    "path": result.path,
-                    "status": result.status or self._outcome_to_status(result.outcome),
-                    "start_time": result.start_time,
-                    "end_time": result.end_time,
-                    "duration": int(result.effective_duration_ms or 0),
-                    "message": result.message or result.error,
-                    "trace": result.trace or result.traceback,
-                    "attributes": convert_dict_to_key_value(result.merge_metadata()),
-                }
-            )
+            item: dict[str, Any] = {
+                "name": result.name,
+                "path": result.path,
+                "attributes": result.merge_metadata(),
+            }
+
+            # Add optional fields
+            if result.status is not None:
+                item["status"] = result.status
+            elif result.outcome:
+                item["status"] = self._outcome_to_status(result.outcome)
+
+            if result.started_at:
+                item["started_at"] = format_datetime_rfc3339(result.started_at)
+            if result.ended_at:
+                item["ended_at"] = format_datetime_rfc3339(result.ended_at)
+            if result.effective_duration_ms:
+                item["duration_ms"] = int(result.effective_duration_ms)
+            if result.message or result.traceback:
+                item["message"] = result.message or result.traceback
+
+            items.append(item)
 
         response = self._send_request(
-            "POST", f"/api/v1/runs/{run_id}/results:batch", data={"items": items}
+            "POST", f"/v1/runs/{run_id}/results/batch", data={"items": items}
         )
         return response.json().get("items", [])  # type: ignore[no-any-return]
 
     def update_test_result(
         self,
+        run_id: int,
         result_id: int,
-        status: int | ResultStatus,
-        end_time: str | datetime,
-        duration: int,
+        status: int | ResultStatus | None = None,
+        ended_at: str | datetime | None = None,
+        duration_ms: int | None = None,
         message: str | None = None,
-        trace: str | None = None,
         attributes: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update an existing test result."""
+        data: dict[str, Any] = {}
+
+        # Add only provided fields
+        if status is not None:
+            data["status"] = status
+        if ended_at is not None:
+            data["ended_at"] = format_datetime_rfc3339(ended_at)
+        if duration_ms is not None:
+            data["duration_ms"] = duration_ms
+        if message is not None:
+            data["message"] = message
+        if attributes:
+            data["attributes"] = attributes
+
         return cast(
             dict[str, Any],
             self._send_request(
                 "PATCH",
-                f"/api/v1/results/{result_id}",
-                data={
-                    "status": status,
-                    "duration": duration,
-                    "end_time": end_time,
-                    "message": message,
-                    "trace": trace,
-                    "attributes": convert_dict_to_key_value(attributes),
-                },
+                f"/v1/runs/{run_id}/results/{result_id}",
+                data=data,
             ).json(),
         )
 
-    def add_attachment(
+    def get_presigned_upload_url(self, filename: str, content_type: str) -> dict[str, Any]:
+        """Get presigned URL for S3 upload."""
+        url = f"{self.base_url}/v1/attachments/presign"
+        payload = {"filename": filename, "content_type": content_type}
+        response = self._send_request("POST", url, data=payload)
+        return response.json()  # type: ignore[no-any-return]
+
+    def confirm_attachment_upload(self, attachment_id: str, result_id: int) -> dict[str, Any]:
+        """Confirm attachment was uploaded and link to result."""
+        url = f"{self.base_url}/v1/attachments/{attachment_id}/confirm"
+        payload = {"result_id": result_id}
+        response = self._send_request("POST", url, data=payload)
+        return response.json()  # type: ignore[no-any-return]
+
+    def upload_attachment_s3(
         self,
         result_id: int,
         file_name: str,
-        file: str | bytes | Path,
+        file_path: str | Path,
         content_type: str,
     ) -> dict[str, Any]:
-        """Add attachment to a test result."""
-        files = []
-
-        if isinstance(file, str | Path):
-            # File path
-            with open(file, "rb") as f:
-                files.append(("file", (file_name, f, content_type)))
-                response = self._send_request(
-                    "POST",
-                    f"/api/v1/results/{result_id}/attachments",
-                    headers={},  # Remove content-type for multipart
-                    files=files,
-                )
-        else:
-            # Bytes data
-            files.append(("file", (file_name, file, content_type)))  # type: ignore[arg-type]
-            response = self._send_request(
-                "POST",
-                f"/api/v1/results/{result_id}/attachments",
-                headers={},  # Remove content-type for multipart
-                files=files,
+        """Upload attachment using new S3 presigned URL workflow."""
+        try:
+            # 1. Get presigned URL
+            presign_resp = self.get_presigned_upload_url(
+                filename=file_name, content_type=content_type
             )
 
+            # 2. Upload to S3
+            upload_url = presign_resp["upload_url"]
+            with open(file_path, "rb") as f:
+                upload_response = requests.put(upload_url, data=f.read())
+                upload_response.raise_for_status()
+
+            # 3. Confirm upload
+            attachment_id = presign_resp["attachment_id"]
+            return self.confirm_attachment_upload(attachment_id, result_id)
+
+        except Exception as e:
+            logger.error(f"Failed to upload attachment {file_name}: {e}")
+            raise
+
+    def batch_update_results(self, run_id: int, updates: list[dict[str, Any]]) -> dict[str, Any]:
+        """Batch update multiple results (future feature)."""
+        url = f"/v1/runs/{run_id}/results/batch"
+        payload = {"updates": updates}
+        response = self._send_request("PATCH", url, data=payload)
         return response.json()  # type: ignore[no-any-return]
 
     # ========== Utility Methods ==========

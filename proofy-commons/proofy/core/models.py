@@ -14,6 +14,7 @@ class RunStatus(int, Enum):
     STARTED = 1
     FINISHED = 2
     ABORTED = 3
+    TIMEOUT = 4
 
 
 class ResultStatus(int, Enum):
@@ -32,14 +33,6 @@ class ProofyAttributes(str, Enum):
     DESCRIPTION = "description"
     SEVERITY = "severity"
     TITLE = "title"
-
-
-@dataclass
-class Property:
-    """A key-value property for test metadata."""
-
-    key: str
-    value: Any
 
 
 @dataclass
@@ -84,26 +77,21 @@ class TestResult:
     outcome: str | None = None  # passed, failed, skipped, error (current project format)
     status: ResultStatus | None = None  # Enum format (old project format)
 
-    # Timing information
-    start_time: datetime | None = None
-    end_time: datetime | None = None
-    duration_ms: float | None = None  # Milliseconds (current project)
-    duration: int | None = None  # Milliseconds (old project, for compatibility)
+    # Timing information - normalized field names
+    started_at: datetime | None = None  # New API field name
+    ended_at: datetime | None = None  # New API field name
+    duration_ms: float | None = None  # Milliseconds
 
     # Test context and metadata
     parameters: dict[str, Any] = field(default_factory=dict)
     markers: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
-    attributes: dict[str, Any] = field(default_factory=dict)  # Old project format
-    properties: list[Property] | None = None  # Old project format
-    meta_data: dict[str, Any] | None = None  # Old project format
+    attributes: dict[str, Any] = field(default_factory=dict)  # Direct dict format for new API
 
     # Error information
-    error: str | None = None
-    message: str | None = None  # Old project format
-    traceback: str | None = None
-    trace: str | None = None  # Old project format
+    message: str | None = None  # Error message for new API
+    traceback: str | None = None  # Error traceback
 
     # Related entities
     attachments: list[Attachment] = field(default_factory=list)
@@ -114,7 +102,13 @@ class TestResult:
 
         def convert_value(val: Any) -> Any:
             if isinstance(val, datetime):
-                return val.isoformat()
+                # RFC 3339 format: YYYY-MM-DDTHH:MM:SS.sssZ or YYYY-MM-DDTHH:MM:SS.sss+HH:MM
+                if val.tzinfo is None:
+                    # Assume UTC if no timezone info
+                    return val.isoformat() + "Z"
+                else:
+                    # Use timezone-aware formatting
+                    return val.isoformat()
             elif isinstance(val, list):
                 return [convert_value(v) for v in val]
             elif isinstance(val, dict):
@@ -147,10 +141,8 @@ class TestResult:
         """Get effective duration in milliseconds."""
         if self.duration_ms is not None:
             return self.duration_ms
-        if self.duration is not None:
-            return float(self.duration)
-        if self.start_time and self.end_time:
-            delta = self.end_time - self.start_time
+        if self.started_at and self.ended_at:
+            delta = self.ended_at - self.started_at
             return delta.total_seconds() * 1000.0
         return None
 
@@ -158,20 +150,11 @@ class TestResult:
         """Merge all metadata sources into unified dict."""
         merged = {}
 
-        # Start with metadata (current project)
+        # Start with metadata
         merged.update(self.metadata)
 
-        # Add attributes (old project)
+        # Add attributes
         if self.attributes:
             merged.update(self.attributes)
-
-        # Add meta_data (old project)
-        if self.meta_data:
-            merged.update(self.meta_data)
-
-        # Add properties (old project)
-        if self.properties:
-            for prop in self.properties:
-                merged[prop.key] = prop.value
 
         return merged

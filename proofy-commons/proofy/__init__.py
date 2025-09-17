@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 # Core components
-from .core.client import ProofyClient
+from .core.client import ProofyClient, format_datetime_rfc3339
 from .core.models import (
     Attachment,
     FixtureResult,
     ProofyAttributes,
-    Property,
     ResultStatus,
     RunStatus,
     TestResult,
@@ -89,12 +88,12 @@ __all__ = [
     "TestResult",
     "Attachment",
     "FixtureResult",
-    "Property",
     "ResultStatus",
     "RunStatus",
     "ProofyAttributes",
     # Client
     "ProofyClient",
+    "format_datetime_rfc3339",
     # Hook system
     "hookspec",
     "hookimpl",

@@ -148,8 +148,8 @@ class TestResult:
 
     # Timing
     duration_ms: Optional[float] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
 
     # Metadata
     metadata: Dict[str, Any] = field(default_factory=dict)

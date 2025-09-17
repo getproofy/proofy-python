@@ -188,7 +188,7 @@ class TestProofyPytestPlugin:
             result = plugin._create_test_result(mock_item, mock_report)
 
             assert result.outcome == "failed"
-            assert result.error == "AssertionError: test failed"
+            assert result.message == "AssertionError: test failed"
             assert result.traceback == "AssertionError: test failed"
 
 

@@ -116,8 +116,8 @@ class ProofyPytestPlugin:
             nodeid=item.nodeid,
             outcome=report.outcome,
             status=self._outcome_to_status(report.outcome),
-            start_time=start_time,
-            end_time=datetime.now(),
+            started_at=start_time,
+            ended_at=datetime.now(),
             duration_ms=duration_ms,
             run_id=self.run_id,
         )
@@ -145,7 +145,7 @@ class ProofyPytestPlugin:
 
         # Add error information
         if report.failed and hasattr(report, "longrepr") and report.longrepr:
-            result.error = str(report.longrepr)
+            result.message = str(report.longrepr)
             result.traceback = str(report.longrepr)
 
         # Add markers as tags
@@ -168,9 +168,9 @@ class ProofyPytestPlugin:
                     display_name=result.name,
                     path=result.path,
                     status=ResultStatus.IN_PROGRESS,
-                    start_time=result.start_time or datetime.now(),
-                    end_time=result.start_time or datetime.now(),  # Will be updated
-                    duration=0,  # Will be updated
+                    started_at=result.started_at or datetime.now(),
+                    ended_at=result.started_at or datetime.now(),  # Will be updated
+                    duration_ms=0,  # Will be updated
                     attributes=result.merge_metadata(),
                 )
                 result.server_id = server_id
@@ -179,22 +179,22 @@ class ProofyPytestPlugin:
             # Update result at test end
             if result.outcome:
                 self.client.update_test_result(
+                    run_id=self.run_id,
                     result_id=result.server_id,
                     status=result.status or ResultStatus.BROKEN,
-                    end_time=result.end_time or datetime.now(),
-                    duration=int(result.effective_duration_ms or 0),
-                    message=result.error,
-                    trace=result.traceback,
+                    ended_at=result.ended_at or datetime.now(),
+                    duration_ms=int(result.effective_duration_ms or 0),
+                    message=result.message,
                     attributes=result.merge_metadata(),
                 )
 
-                # Send attachments
+                # Send attachments using new S3 workflow
                 for attachment in result.attachments:
                     try:
-                        self.client.add_attachment(
+                        self.client.upload_attachment_s3(
                             result_id=result.server_id,
                             file_name=attachment.name,
-                            file=attachment.path,
+                            file_path=attachment.path,
                             content_type=attachment.mime_type or "application/octet-stream",
                         )
                     except Exception as e:
@@ -244,7 +244,7 @@ class ProofyPytestPlugin:
             self.client.update_test_run(
                 run_id=self.run_id,
                 status=RunStatus.FINISHED,
-                end_time=datetime.now(),
+                ended_at=datetime.now(),
                 attributes={
                     "total_results": len(self.test_results),
                 },
@@ -329,7 +329,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
                 path=_plugin_instance._get_test_path(item),
                 nodeid=item.nodeid,
                 status=ResultStatus.IN_PROGRESS,
-                start_time=datetime.now(),
+                started_at=datetime.now(),
                 run_id=_plugin_instance.run_id,
             )
 
@@ -338,9 +338,9 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
                 display_name=result.name,
                 path=result.path,
                 status=ResultStatus.IN_PROGRESS,
-                start_time=result.start_time or datetime.now(),
-                end_time=result.start_time or datetime.now(),
-                duration=0,
+                started_at=result.started_at or datetime.now(),
+                ended_at=result.started_at or datetime.now(),
+                duration_ms=0,
             )
             result.server_id = server_id
             _plugin_instance.test_results[test_id] = result
@@ -374,9 +374,9 @@ def pytest_runtest_makereport(
         # Update with report data
         stored_result.outcome = result.outcome
         stored_result.status = result.status
-        stored_result.end_time = result.end_time
+        stored_result.ended_at = result.ended_at
         stored_result.duration_ms = result.duration_ms
-        stored_result.error = result.error
+        stored_result.message = result.message
         stored_result.traceback = result.traceback
         result = stored_result
     else:
