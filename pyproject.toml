@@ -1,0 +1,132 @@
+[project]
+name = "proofy-python-unified"
+version = "0.1.0"
+description = "Unified Proofy framework for multiple Python testing frameworks"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Proofy Team", email = "team@proofy.io" },
+]
+license = { text = "MIT" }
+keywords = ["testing", "proofy", "pytest", "behave", "unittest", "nose2"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5.0",
+    "pytest>=8.2",
+    "pytest-xdist>=3.5",
+    "pytest-rerunfailures>=12.0",
+    "mypy>=1.10",
+    "pre-commit>=3.8",
+]
+pytest = ["pytest>=8.2"]
+behave = ["behave>=1.2.6"]
+unittest = []  # Built-in to Python
+nose2 = ["nose2>=0.12.0"]
+all = [
+    "pytest>=8.2",
+    "behave>=1.2.6", 
+    "nose2>=0.12.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers"
+testpaths = [
+    "proofy-commons/tests",
+    "pytest-proofy/tests",
+    "behave-proofy/tests",
+    "unittest-proofy/tests",
+    "nose2-proofy/tests",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+files = [
+    "proofy-commons/proofy",
+    "pytest-proofy/pytest_proofy",
+    "behave-proofy/behave_proofy",
+    "unittest-proofy/unittest_proofy",
+    "nose2-proofy/nose2_proofy",
+]
+exclude = [
+    "^tests/",
+    "^examples/",
+]
+
+[tool.coverage.run]
+source = [
+    "proofy-commons/proofy",
+    "pytest-proofy/pytest_proofy", 
+    "behave-proofy/behave_proofy",
+    "unittest-proofy/unittest_proofy",
+    "nose2-proofy/nose2_proofy",
+]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
