@@ -31,9 +31,33 @@ dependencies = [
 dev = [
     "pytest>=8.2",
     "pytest-cov>=4.1",
+    "coverage[toml]>=7.0",
     "mypy>=1.10",
     "types-requests>=2.31",
 ]
+
+[tool.coverage.run]
+source = ["proofy"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstract",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
 
 [tool.setuptools]
 packages = ["proofy"]

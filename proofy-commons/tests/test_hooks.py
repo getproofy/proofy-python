@@ -1,7 +1,5 @@
 """Tests for Proofy hook system."""
 
-import pytest
-
 from proofy.hooks.manager import get_plugin_manager, reset_plugin_manager
 from proofy.hooks.specs import hookimpl
 
@@ -41,9 +39,7 @@ class TestPluginManager:
         pm.register(plugin)
 
         # Call hook
-        pm.hook.proofy_test_start(
-            test_id="test_1", test_name="Test 1", test_path="/test1.py"
-        )
+        pm.hook.proofy_test_start(test_id="test_1", test_name="Test 1", test_path="/test1.py")
 
         # Verify hook was called
         assert len(plugin.calls) == 1
@@ -128,18 +124,14 @@ class TestPluginManager:
         pm.register(plugin)
 
         # Call hook - should work
-        pm.hook.proofy_test_start(
-            test_id="test_1", test_name="Test 1", test_path="/test1.py"
-        )
+        pm.hook.proofy_test_start(test_id="test_1", test_name="Test 1", test_path="/test1.py")
         assert len(plugin.calls) == 1
 
         # Unregister plugin
         pm.unregister(plugin)
 
         # Call hook again - should not call plugin
-        pm.hook.proofy_test_start(
-            test_id="test_2", test_name="Test 2", test_path="/test2.py"
-        )
+        pm.hook.proofy_test_start(test_id="test_2", test_name="Test 2", test_path="/test2.py")
 
         # Should still be 1 (not called after unregister)
         assert len(plugin.calls) == 1

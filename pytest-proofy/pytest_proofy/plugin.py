@@ -2,27 +2,25 @@
 
 from __future__ import annotations
 
-import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 import pytest
 from _pytest.reports import TestReport
 
 # Import from proofy-commons
 from proofy import (
-    ProofyClient,
-    TestResult,
     Attachment,
+    ProofyClient,
     ResultStatus,
     RunStatus,
-    get_plugin_manager,
-    get_current_test_context,
-    set_current_test_context,
     TestContext,
+    TestResult,
+    get_current_test_context,
+    get_plugin_manager,
     hookimpl,
+    set_current_test_context,
 )
 
 from .config import (
@@ -38,11 +36,11 @@ class ProofyPytestPlugin:
 
     def __init__(self, config: ProofyConfig):
         self.config = config
-        self.client: Optional[ProofyClient] = None
-        self.run_id: Optional[int] = None
+        self.client: ProofyClient | None = None
+        self.run_id: int | None = None
         self.session_id = str(uuid.uuid4())
-        self.test_results: Dict[str, TestResult] = {}
-        self.test_start_times: Dict[str, datetime] = {}
+        self.test_results: dict[str, TestResult] = {}
+        self.test_start_times: dict[str, datetime] = {}
 
         # Initialize client if API configured
         if config.api_base and config.token:
@@ -53,11 +51,11 @@ class ProofyPytestPlugin:
         # Register with hook system if enabled
         if config.enable_hooks:
             pm = get_plugin_manager()
-            try:
-                pm.register(self, "pytest_proofy")
-            except ValueError:
+            from contextlib import suppress
+
+            with suppress(ValueError):
                 # Plugin already registered (e.g., during testing)
-                pass
+                pm.register(self, "pytest_proofy")
 
     def _get_test_id(self, item: pytest.Item) -> str:
         """Generate consistent test ID from pytest item."""
@@ -78,9 +76,7 @@ class ProofyPytestPlugin:
     def _get_test_path(self, item: pytest.Item) -> str:
         """Get relative path for test."""
         try:
-            root = getattr(item.config, "rootpath", None) or getattr(
-                item.config, "rootdir", None
-            )
+            root = getattr(item.config, "rootpath", None) or getattr(item.config, "rootdir", None)
             if root:
                 return str(Path(item.fspath).relative_to(Path(str(root))))
         except Exception:
@@ -144,10 +140,9 @@ class ProofyPytestPlugin:
                     result.attachments.append(attachment)
 
         # Add error information
-        if report.failed:
-            if hasattr(report, "longrepr") and report.longrepr:
-                result.error = str(report.longrepr)
-                result.traceback = str(report.longrepr)
+        if report.failed and hasattr(report, "longrepr") and report.longrepr:
+            result.error = str(report.longrepr)
+            result.traceback = str(report.longrepr)
 
         # Add markers as tags
         for marker in item.iter_markers():
@@ -196,8 +191,7 @@ class ProofyPytestPlugin:
                             result_id=result.server_id,
                             file_name=attachment.name,
                             file=attachment.path,
-                            content_type=attachment.mime_type
-                            or "application/octet-stream",
+                            content_type=attachment.mime_type or "application/octet-stream",
                         )
                     except Exception as e:
                         print(f"Failed to upload attachment {attachment.name}: {e}")
@@ -215,16 +209,13 @@ class ProofyPytestPlugin:
         except Exception as e:
             print(f"Failed to send result in lazy mode: {e}")
 
-    def _create_run(self, session: pytest.Session) -> Optional[int]:
+    def _create_run(self, session: pytest.Session) -> int | None:
         """Create a new test run."""
         if not self.client or not self.config.project_id:
             return None
 
         try:
-            run_name = (
-                self.config.run_name
-                or f"pytest-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            )
+            run_name = self.config.run_name or f"pytest-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
             response = self.client.create_test_run(
                 project=self.config.project_id,
@@ -259,7 +250,7 @@ class ProofyPytestPlugin:
 
 
 # Plugin instance (will be set during configuration)
-_plugin_instance: Optional[ProofyPytestPlugin] = None
+_plugin_instance: ProofyPytestPlugin | None = None
 
 
 # Pytest hooks
@@ -409,8 +400,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 def _backup_results_locally(plugin: ProofyPytestPlugin) -> None:
     """Create local backup of results."""
     try:
-        from pathlib import Path
         import json
+        from pathlib import Path
 
         output_dir = Path(plugin.config.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -443,9 +434,7 @@ class PytestProofyHooks:
         pass  # Already handled in pytest_runtest_makereport
 
     @hookimpl
-    def proofy_add_attachment(
-        self, test_id: str, file_path: str, name: str, mime_type=None
-    ):
+    def proofy_add_attachment(self, test_id: str, file_path: str, name: str, mime_type=None):
         """Called to add attachment."""
         if _plugin_instance and test_id in _plugin_instance.test_results:
             result = _plugin_instance.test_results[test_id]

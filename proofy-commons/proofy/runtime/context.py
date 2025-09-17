@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import Any, ClassVar
 
 from ..hooks.manager import get_plugin_manager
 
@@ -21,26 +21,24 @@ class TestContext:
     __test__: ClassVar[bool] = False  # Prevent pytest from treating this as a test
 
     # Test identification
-    test_id: Optional[str] = None
+    test_id: str | None = None
 
     # Display properties
-    name: Optional[str] = None
-    description: Optional[str] = None
-    severity: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
+    severity: str | None = None
 
     # Metadata and attributes
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    attributes: Dict[str, Any] = field(
-        default_factory=dict
-    )  # Old project compatibility
-    tags: List[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    attributes: dict[str, Any] = field(default_factory=dict)  # Old project compatibility
+    tags: list[str] = field(default_factory=list)
 
     # Attachments
-    files: List[Dict[str, Any]] = field(default_factory=list)
+    files: list[dict[str, Any]] = field(default_factory=list)
 
     # Server integration
-    server_id: Optional[int] = None  # Server-assigned test result ID
-    run_id: Optional[int] = None  # Server-assigned run ID
+    server_id: int | None = None  # Server-assigned test result ID
+    run_id: int | None = None  # Server-assigned run ID
 
 
 @dataclass
@@ -48,10 +46,10 @@ class SessionContext:
     """Runtime context for an entire test session."""
 
     session_id: str
-    run_name: Optional[str] = None
-    run_id: Optional[int] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    test_contexts: Dict[str, TestContext] = field(default_factory=dict)
+    run_name: str | None = None
+    run_id: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    test_contexts: dict[str, TestContext] = field(default_factory=dict)
 
 
 # Thread-local storage for contexts
@@ -63,11 +61,11 @@ def _get_local_test_context() -> TestContext:
     ctx = getattr(_LOCAL, "test_ctx", None)
     if ctx is None:
         ctx = TestContext()
-        setattr(_LOCAL, "test_ctx", ctx)
+        _LOCAL.test_ctx = ctx
     return ctx
 
 
-def _get_local_session_context() -> Optional[SessionContext]:
+def _get_local_session_context() -> SessionContext | None:
     """Get the session context for the current thread."""
     return getattr(_LOCAL, "session_ctx", None)
 
@@ -75,7 +73,7 @@ def _get_local_session_context() -> Optional[SessionContext]:
 # ========== Test Context Management ==========
 
 
-def set_current_test_context(ctx: Optional[TestContext]) -> None:
+def set_current_test_context(ctx: TestContext | None) -> None:
     """Set or clear the current test context for the active thread.
 
     Args:
@@ -85,7 +83,7 @@ def set_current_test_context(ctx: Optional[TestContext]) -> None:
         if hasattr(_LOCAL, "test_ctx"):
             delattr(_LOCAL, "test_ctx")
         return
-    setattr(_LOCAL, "test_ctx", ctx)
+    _LOCAL.test_ctx = ctx
 
 
 def get_current_test_context() -> TestContext:
@@ -97,7 +95,7 @@ def get_current_test_context() -> TestContext:
     return _get_local_test_context()
 
 
-def get_test_context(test_id: str) -> Optional[TestContext]:
+def get_test_context(test_id: str) -> TestContext | None:
     """Get test context by ID from session context.
 
     Args:
@@ -115,7 +113,7 @@ def get_test_context(test_id: str) -> Optional[TestContext]:
 # ========== Session Context Management ==========
 
 
-def set_current_session_context(ctx: Optional[SessionContext]) -> None:
+def set_current_session_context(ctx: SessionContext | None) -> None:
     """Set or clear the current session context.
 
     Args:
@@ -125,10 +123,10 @@ def set_current_session_context(ctx: Optional[SessionContext]) -> None:
         if hasattr(_LOCAL, "session_ctx"):
             delattr(_LOCAL, "session_ctx")
         return
-    setattr(_LOCAL, "session_ctx", ctx)
+    _LOCAL.session_ctx = ctx
 
 
-def get_current_session_context() -> Optional[SessionContext]:
+def get_current_session_context() -> SessionContext | None:
     """Get the current session context.
 
     Returns:
@@ -148,11 +146,11 @@ def push_test_context(ctx: TestContext) -> None:
     """
     stack = getattr(_LOCAL, "ctx_stack", [])
     stack.append(get_current_test_context())
-    setattr(_LOCAL, "ctx_stack", stack)
+    _LOCAL.ctx_stack = stack
     set_current_test_context(ctx)
 
 
-def pop_test_context() -> Optional[TestContext]:
+def pop_test_context() -> TestContext | None:
     """Pop the previous test context from the stack.
 
     Returns:
@@ -163,7 +161,7 @@ def pop_test_context() -> Optional[TestContext]:
         return None
 
     previous_ctx = stack.pop()
-    setattr(_LOCAL, "ctx_stack", stack)
+    _LOCAL.ctx_stack = stack
     set_current_test_context(previous_ctx)
     return previous_ctx
 
@@ -171,7 +169,7 @@ def pop_test_context() -> Optional[TestContext]:
 # ========== Metadata Management ==========
 
 
-def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None:
+def add_metadata(key: str, value: Any, test_id: str | None = None) -> None:
     """Add metadata to test context.
 
     Args:
@@ -190,12 +188,10 @@ def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None:
 
     # Trigger hook
     pm = get_plugin_manager()
-    pm.hook.proofy_add_attributes(
-        test_id=test_id or ctx.test_id, attributes={key: value}
-    )
+    pm.hook.proofy_add_attributes(test_id=test_id or ctx.test_id, attributes={key: value})
 
 
-def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
+def add_attributes(test_id: str | None = None, **kwargs: Any) -> None:
     """Add multiple attributes to test context.
 
     Args:
@@ -217,7 +213,7 @@ def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
     pm.hook.proofy_add_attributes(test_id=test_id or ctx.test_id, attributes=kwargs)
 
 
-def add_tag(tag: str, test_id: Optional[str] = None) -> None:
+def add_tag(tag: str, test_id: str | None = None) -> None:
     """Add a tag to test context.
 
     Args:
@@ -239,7 +235,7 @@ def add_tag(tag: str, test_id: Optional[str] = None) -> None:
         pm.hook.proofy_add_tags(test_id=test_id or ctx.test_id, tags=[tag])
 
 
-def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
+def add_tags(tags: list[str], test_id: str | None = None) -> None:
     """Add multiple tags to test context.
 
     Args:
@@ -269,13 +265,13 @@ def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
 
 
 def add_file(
-    file: Union[str, Path],
+    file: str | Path,
     *,
     name: str,
-    content_type: Optional[str] = None,
-    mime_type: Optional[str] = None,  # Alias for content_type
-    extension: Optional[str] = None,
-    test_id: Optional[str] = None,
+    content_type: str | None = None,
+    mime_type: str | None = None,  # Alias for content_type
+    extension: str | None = None,
+    test_id: str | None = None,
 ) -> None:
     """Add a file attachment to test context.
 
@@ -318,12 +314,12 @@ def add_file(
 
 
 def add_attachment(
-    file: Union[str, Path],
+    file: str | Path,
     *,
     name: str,
-    mime_type: Optional[str] = None,
-    extension: Optional[str] = None,
-    test_id: Optional[str] = None,
+    mime_type: str | None = None,
+    extension: str | None = None,
+    test_id: str | None = None,
 ) -> None:
     """Add an attachment to test context (convenience wrapper for add_file).
 
@@ -334,6 +330,4 @@ def add_attachment(
         extension: File extension
         test_id: Target test ID (current test if None)
     """
-    add_file(
-        file=file, name=name, mime_type=mime_type, extension=extension, test_id=test_id
-    )
+    add_file(file=file, name=name, mime_type=mime_type, extension=extension, test_id=test_id)

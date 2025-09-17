@@ -1,8 +1,8 @@
 """Test configuration and fixtures for pytest-proofy tests."""
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
 from pytest_proofy.config import ProofyConfig
 
 

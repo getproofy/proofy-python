@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pluggy import HookimplMarker, HookspecMarker
 
@@ -23,7 +23,7 @@ class ProofyHookSpecs:
         test_id: str,
         test_name: str,
         test_path: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Called when a test starts execution.
 
@@ -43,7 +43,7 @@ class ProofyHookSpecs:
         """
 
     @hookspec
-    def proofy_test_update(self, test_id: str, metadata: Dict[str, Any]) -> None:
+    def proofy_test_update(self, test_id: str, metadata: dict[str, Any]) -> None:
         """Called to update test metadata during execution.
 
         Args:
@@ -57,8 +57,8 @@ class ProofyHookSpecs:
     def proofy_session_start(
         self,
         session_id: str,
-        run_name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        run_name: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Called when test session starts.
 
@@ -72,8 +72,8 @@ class ProofyHookSpecs:
     def proofy_session_finish(
         self,
         session_id: str,
-        results: List[TestResult],
-        summary: Optional[Dict[str, Any]] = None,
+        results: list[TestResult],
+        summary: dict[str, Any] | None = None,
     ) -> None:
         """Called when test session finishes.
 
@@ -88,10 +88,10 @@ class ProofyHookSpecs:
     @hookspec
     def proofy_add_attachment(
         self,
-        test_id: Optional[str],
+        test_id: str | None,
         file_path: str,
         name: str,
-        mime_type: Optional[str] = None,
+        mime_type: str | None = None,
     ) -> None:
         """Called to add an attachment to the current test.
 
@@ -117,9 +117,7 @@ class ProofyHookSpecs:
     # ========== Metadata Hooks ==========
 
     @hookspec
-    def proofy_add_attributes(
-        self, test_id: Optional[str], attributes: Dict[str, Any]
-    ) -> None:
+    def proofy_add_attributes(self, test_id: str | None, attributes: dict[str, Any]) -> None:
         """Called to add attributes to a test.
 
         Args:
@@ -128,7 +126,7 @@ class ProofyHookSpecs:
         """
 
     @hookspec
-    def proofy_set_name(self, test_id: Optional[str], name: str) -> None:
+    def proofy_set_name(self, test_id: str | None, name: str) -> None:
         """Called to set/override test display name.
 
         Args:
@@ -137,7 +135,7 @@ class ProofyHookSpecs:
         """
 
     @hookspec
-    def proofy_set_description(self, test_id: Optional[str], description: str) -> None:
+    def proofy_set_description(self, test_id: str | None, description: str) -> None:
         """Called to set test description.
 
         Args:
@@ -146,7 +144,7 @@ class ProofyHookSpecs:
         """
 
     @hookspec
-    def proofy_set_severity(self, test_id: Optional[str], severity: str) -> None:
+    def proofy_set_severity(self, test_id: str | None, severity: str) -> None:
         """Called to set test severity level.
 
         Args:
@@ -155,7 +153,7 @@ class ProofyHookSpecs:
         """
 
     @hookspec
-    def proofy_add_tags(self, test_id: Optional[str], tags: List[str]) -> None:
+    def proofy_add_tags(self, test_id: str | None, tags: list[str]) -> None:
         """Called to add tags to a test.
 
         Args:
@@ -185,7 +183,7 @@ class ProofyHookSpecs:
     # ========== Framework Integration Hooks ==========
 
     @hookspec
-    def proofy_configure(self, config: Dict[str, Any]) -> None:
+    def proofy_configure(self, config: dict[str, Any]) -> None:
         """Called during framework configuration.
 
         Args:
@@ -193,7 +191,7 @@ class ProofyHookSpecs:
         """
 
     @hookspec
-    def proofy_collect_tests(self, collected_tests: List[Dict[str, Any]]) -> None:
+    def proofy_collect_tests(self, collected_tests: list[dict[str, Any]]) -> None:
         """Called after test collection phase.
 
         Args:
@@ -203,7 +201,7 @@ class ProofyHookSpecs:
     # ========== Marker/Decorator Hooks ==========
 
     @hookspec
-    def proofy_mark_attributes(self, attributes: Dict[str, Any]) -> Any:
+    def proofy_mark_attributes(self, attributes: dict[str, Any]) -> Any:
         """Called to create test markers with attributes.
 
         Args:
@@ -215,7 +213,7 @@ class ProofyHookSpecs:
 
     @hookspec
     def proofy_apply_marker(
-        self, test_id: str, marker_name: str, marker_args: Dict[str, Any]
+        self, test_id: str, marker_name: str, marker_args: dict[str, Any]
     ) -> None:
         """Called when a marker is applied to a test.
 

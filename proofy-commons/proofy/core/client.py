@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import urllib.parse
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Literal, Optional, Union
+from typing import Any, Literal
 
 import requests
 
@@ -16,7 +17,7 @@ from .models import ResultStatus, RunStatus, TestResult
 logger = logging.getLogger(__name__)
 
 
-def convert_dict_to_key_value(data: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def convert_dict_to_key_value(data: dict[str, Any] | None) -> list[dict[str, Any]]:
     """Convert dictionary to key-value format for API compatibility."""
     if not data:
         return []
@@ -46,8 +47,8 @@ class ProofyClient:
     def __init__(
         self,
         base_url: str,
-        token: Optional[str] = None,
-        api_key: Optional[str] = None,  # Legacy compatibility
+        token: str | None = None,
+        api_key: str | None = None,  # Legacy compatibility
         timeout_s: float = 10.0,
     ) -> None:
         """Initialize the Proofy client.
@@ -63,9 +64,7 @@ class ProofyClient:
 
         # Setup session
         self.session = requests.Session()
-        self.session.headers.update(
-            {"User-Agent": "proofy-python-unified/0.1.0", **self.HEADERS}
-        )
+        self.session.headers.update({"User-Agent": "proofy-python-unified/0.1.0", **self.HEADERS})
 
         # Authentication - prefer token over api_key
         auth_token = token or api_key
@@ -96,7 +95,7 @@ class ProofyClient:
     def send_test_results(self, results: Iterable[TestResult]) -> requests.Response:
         """Send multiple test results in batch (current project compatibility)."""
         url = f"{self.base_url}/results/batch"
-        payload: List[Dict[str, Any]] = [r.to_dict() for r in results]
+        payload: list[dict[str, Any]] = [r.to_dict() for r in results]
         return self.session.post(url, json=payload, timeout=self.timeout_s)
 
     def get_presigned_url(self, filename: str) -> requests.Response:
@@ -117,8 +116,8 @@ class ProofyClient:
         project: int,
         name: str,
         status: RunStatus,
-        attributes: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        attributes: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a new test run and return its details including ID."""
         return self._send_request(
             "POST",
@@ -135,9 +134,9 @@ class ProofyClient:
         self,
         run_id: int,
         status: RunStatus,
-        end_time: Union[str, datetime],
-        attributes: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        end_time: str | datetime,
+        attributes: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Update an existing test run."""
         return self._send_request(
             "PATCH",
@@ -154,13 +153,13 @@ class ProofyClient:
         run_id: int,
         display_name: str,
         path: str,
-        status: Union[int, ResultStatus],
-        start_time: Union[str, datetime],
-        end_time: Union[str, datetime],
+        status: int | ResultStatus,
+        start_time: str | datetime,
+        end_time: str | datetime,
         duration: int = 0,
-        message: Optional[str] = None,
-        trace: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        message: str | None = None,
+        trace: str | None = None,
+        attributes: dict[str, Any] | None = None,
     ) -> int:
         """Create a new test result and return its server-assigned ID."""
         if not run_id:
@@ -187,8 +186,8 @@ class ProofyClient:
         return int(result_id)
 
     def create_test_result_batches(
-        self, run_id: int, results: List[TestResult]
-    ) -> List[Dict[str, Any]]:
+        self, run_id: int, results: list[TestResult]
+    ) -> list[dict[str, Any]]:
         """Create multiple test results in batch and return their IDs."""
         items = []
         for result in results:
@@ -214,13 +213,13 @@ class ProofyClient:
     def update_test_result(
         self,
         result_id: int,
-        status: Union[int, ResultStatus],
-        end_time: Union[str, datetime],
+        status: int | ResultStatus,
+        end_time: str | datetime,
         duration: int,
-        message: Optional[str] = None,
-        trace: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        message: str | None = None,
+        trace: str | None = None,
+        attributes: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Update an existing test result."""
         return self._send_request(
             "PATCH",
@@ -239,9 +238,9 @@ class ProofyClient:
         self,
         result_id: int,
         file_name: str,
-        file: Union[str, bytes, Path],
+        file: str | bytes | Path,
         content_type: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Add attachment to a test result."""
         files = []
 
@@ -278,9 +277,9 @@ class ProofyClient:
         self,
         method: Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
         url: str,
-        data: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        files: Optional[List[Any]] = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        files: list[Any] | None = None,
         **kwargs: Any,
     ) -> requests.Response:
         """Send HTTP request with proper error handling."""
@@ -290,9 +289,7 @@ class ProofyClient:
         request_headers = self.HEADERS.copy()
         if headers is not None:
             request_headers.update(headers)
-        request_headers.update(
-            {"Authorization": self.session.headers.get("Authorization", "")}
-        )
+        request_headers.update({"Authorization": self.session.headers.get("Authorization", "")})
 
         # Prepare data
         json_data = None
@@ -319,7 +316,7 @@ class ProofyClient:
                 logger.error(f"Response content: {e.response.content}")
             raise
 
-    def _outcome_to_status(self, outcome: Optional[str]) -> ResultStatus:
+    def _outcome_to_status(self, outcome: str | None) -> ResultStatus:
         """Convert outcome string to ResultStatus enum."""
         if not outcome:
             return ResultStatus.IN_PROGRESS

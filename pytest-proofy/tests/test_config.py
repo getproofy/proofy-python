@@ -1,7 +1,6 @@
 """Tests for pytest-proofy configuration."""
 
 import os
-import pytest
 from unittest.mock import Mock
 
 from pytest_proofy.config import ProofyConfig, resolve_options

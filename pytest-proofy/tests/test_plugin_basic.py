@@ -1,11 +1,10 @@
 """Basic tests for pytest-proofy plugin."""
 
-import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime
+from unittest.mock import Mock, patch
 
-from pytest_proofy.plugin import ProofyPytestPlugin
 from pytest_proofy.config import ProofyConfig
+from pytest_proofy.plugin import ProofyPytestPlugin
 
 
 class TestProofyPytestPlugin:

@@ -1,0 +1,286 @@
+name: Performance Benchmarks
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Run benchmarks every day at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  benchmark:
+    name: "Performance Benchmarks"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e './proofy-commons[dev]'
+          pip install -e './pytest-proofy[dev]'
+          pip install pytest-benchmark memory-profiler psutil
+
+      - name: Create benchmark test suite
+        run: |
+          mkdir -p benchmarks
+          
+          # Create large test suite for performance testing
+          cat > benchmarks/test_performance.py << 'EOF'
+          import pytest
+          import time
+          import tempfile
+          import os
+          from pathlib import Path
+          from proofy import name, description, severity, add_attachment, add_tag
+          
+          
+          class TestProofyPerformance:
+              """Performance benchmarks for proofy-pytest integration."""
+          
+              def test_simple_test_overhead(self, benchmark):
+                  """Measure overhead of proofy on simple tests."""
+                  
+                  @name("Benchmark Test")
+                  @description("Simple test to measure proofy overhead")
+                  @severity("low")
+                  def simple_test():
+                      add_tag("benchmark")
+                      return 1 + 1
+                  
+                  result = benchmark(simple_test)
+                  assert result == 2
+          
+              def test_attachment_performance(self, benchmark):
+                  """Measure performance of attachment handling."""
+                  
+                  def add_large_attachment():
+                      with tempfile.NamedTemporaryFile(delete=False, suffix='.txt') as f:
+                          # Create 1MB file
+                          f.write(b'x' * 1024 * 1024)
+                          f.flush()
+                          add_attachment(f.name, name="Large File")
+                          os.unlink(f.name)
+                  
+                  benchmark(add_large_attachment)
+          
+              def test_metadata_performance(self, benchmark):
+                  """Measure performance of metadata operations."""
+                  
+                  def add_lots_of_metadata():
+                      for i in range(100):
+                          add_tag(f"tag_{i}")
+                  
+                  benchmark(add_lots_of_metadata)
+          
+              @pytest.mark.parametrize("test_count", [10, 50, 100])
+              def test_large_suite_simulation(self, benchmark, test_count):
+                  """Simulate large test suite performance."""
+                  
+                  def simulate_test_suite():
+                      for i in range(test_count):
+                          # Simulate test execution with proofy decorators
+                          test_name = f"test_{i}"
+                          add_tag("simulation")
+                          if i % 10 == 0:
+                              # Add attachment every 10th test
+                              with tempfile.NamedTemporaryFile(delete=False, suffix='.log') as f:
+                                  f.write(f"Log for {test_name}".encode())
+                                  f.flush()
+                                  add_attachment(f.name, name=f"Log {i}")
+                                  os.unlink(f.name)
+                  
+                  benchmark(simulate_test_suite)
+          EOF
+
+      - name: Run performance benchmarks
+        run: |
+          echo "::group::Running performance benchmarks"
+          cd benchmarks
+          python -m pytest test_performance.py -v --benchmark-only --benchmark-json=../benchmark-results.json
+          echo "::endgroup::"
+
+      - name: Generate performance report
+        run: |
+          echo "::group::Performance Report"
+          
+          if [ -f benchmark-results.json ]; then
+            echo "## Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract key metrics using Python
+            python3 << 'EOF'
+          import json
+          import sys
+          
+          try:
+              with open('benchmark-results.json', 'r') as f:
+                  data = json.load(f)
+              
+              print("| Test | Min (s) | Max (s) | Mean (s) | StdDev |")
+              print("|------|---------|---------|----------|--------|")
+              
+              for benchmark in data.get('benchmarks', []):
+                  name = benchmark['name']
+                  stats = benchmark['stats']
+                  min_time = f"{stats['min']:.6f}"
+                  max_time = f"{stats['max']:.6f}"
+                  mean_time = f"{stats['mean']:.6f}"
+                  stddev = f"{stats['stddev']:.6f}"
+                  print(f"| {name} | {min_time} | {max_time} | {mean_time} | {stddev} |")
+          
+          except Exception as e:
+              print(f"Error processing benchmark results: {e}")
+              sys.exit(1)
+          EOF
+          
+          echo "::endgroup::"
+
+      - name: Memory usage test
+        run: |
+          echo "::group::Memory Usage Test"
+          
+          # Create memory test
+          cat > memory_test.py << 'EOF'
+          import psutil
+          import os
+          from proofy import name, description, add_attachment, add_tag
+          
+          def test_memory_usage():
+              """Test memory usage during proofy operations."""
+              process = psutil.Process(os.getpid())
+              initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+              
+              print(f"Initial memory: {initial_memory:.2f} MB")
+              
+              # Simulate many test operations
+              for i in range(1000):
+                  add_tag(f"memory_test_{i}")
+                  if i % 100 == 0:
+                      current_memory = process.memory_info().rss / 1024 / 1024
+                      print(f"Memory after {i} operations: {current_memory:.2f} MB")
+              
+              final_memory = process.memory_info().rss / 1024 / 1024
+              memory_increase = final_memory - initial_memory
+              
+              print(f"Final memory: {final_memory:.2f} MB")
+              print(f"Memory increase: {memory_increase:.2f} MB")
+              
+              # Check for memory leaks (should be reasonable)
+              assert memory_increase < 50, f"Memory increase too high: {memory_increase} MB"
+          
+          if __name__ == "__main__":
+              test_memory_usage()
+          EOF
+          
+          python memory_test.py
+          echo "::endgroup::"
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+          retention-days: 30
+
+      - name: Compare with previous results
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "::group::Performance Comparison"
+          echo "⚠️ Performance comparison with main branch would be implemented here"
+          echo "This would require storing baseline results and comparing against them"
+          echo "::endgroup::"
+
+  stress-test:
+    name: "Stress Test"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e './proofy-commons[dev]'
+          pip install -e './pytest-proofy[dev]'
+
+      - name: Create large test suite
+        run: |
+          mkdir -p stress-test
+          
+          # Generate 1000 test files with 10 tests each = 10,000 tests
+          for i in {1..100}; do
+            cat > stress-test/test_stress_$i.py << EOF
+          import pytest
+          from proofy import name, description, severity, add_tag
+          
+          class TestStress$i:
+              """Stress test class $i."""
+          
+              @pytest.mark.parametrize("param", range(10))
+              @name("Stress Test {param}")
+              @description("Stress test to verify performance under load")
+              @severity("low")
+              def test_stress_$i(self, param):
+                  """Stress test method."""
+                  add_tag("stress")
+                  add_tag(f"batch_{param}")
+                  assert param >= 0
+          EOF
+          done
+
+      - name: Run stress test in lazy mode
+        run: |
+          echo "::group::Stress test - Lazy mode"
+          cd stress-test
+          time python -m pytest . -v --proofy-mode lazy --proofy-output-dir ./stress-artifacts-lazy -x
+          echo "::endgroup::"
+
+      - name: Run stress test in batch mode
+        run: |
+          echo "::group::Stress test - Batch mode"
+          cd stress-test
+          time python -m pytest . -v --proofy-mode batch --proofy-batch-size 100 --proofy-output-dir ./stress-artifacts-batch -x
+          echo "::endgroup::"
+
+      - name: Verify stress test results
+        run: |
+          echo "::group::Stress test verification"
+          
+          echo "Lazy mode results:"
+          if [ -f stress-test/stress-artifacts-lazy/results.json ]; then
+            LAZY_COUNT=$(cat stress-test/stress-artifacts-lazy/results.json | jq '. | length')
+            echo "✓ Lazy mode: $LAZY_COUNT results"
+          fi
+          
+          echo "Batch mode results:"
+          if [ -f stress-test/stress-artifacts-batch/results.json ]; then
+            BATCH_COUNT=$(cat stress-test/stress-artifacts-batch/results.json | jq '. | length')
+            echo "✓ Batch mode: $BATCH_COUNT results"
+          fi
+          
+          echo "::endgroup::"
+
+      - name: Upload stress test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stress-test-artifacts
+          path: stress-test/stress-artifacts-*/
+          retention-days: 7

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, List, TypeVar
+from typing import Any, TypeVar
 
 from ..hooks.manager import get_plugin_manager
 from .context import get_current_test_context
@@ -150,7 +151,7 @@ def attributes(**attrs: Any) -> Callable[[F], F]:
 
     def decorator(obj: F) -> F:
         # Handle both functions and classes
-        if hasattr(obj, "__call__") and not isinstance(obj, type):
+        if callable(obj) and not isinstance(obj, type):
             # Function decorator
             @wraps(obj)
             def wrapper(*args: Any, **kwargs_call: Any):  # type: ignore[misc]
@@ -167,7 +168,7 @@ def attributes(**attrs: Any) -> Callable[[F], F]:
             return wrapper  # type: ignore[return-value]
         else:
             # Class decorator or other object
-            setattr(obj, "__proofy_attributes__", attrs)
+            obj.__proofy_attributes__ = attrs
             return obj
 
     return decorator
@@ -200,41 +201,41 @@ def marker(**attrs: Any) -> Any:
 # ========== Convenience decorators for common attributes ==========
 
 
-def critical(func: F) -> F:
+def critical[F](func: F) -> F:
     """Mark test as critical severity."""
     return severity("critical")(func)
 
 
-def high(func: F) -> F:
+def high[F](func: F) -> F:
     """Mark test as high severity."""
     return severity("high")(func)
 
 
-def medium(func: F) -> F:
+def medium[F](func: F) -> F:
     """Mark test as medium severity."""
     return severity("medium")(func)
 
 
-def low(func: F) -> F:
+def low[F](func: F) -> F:
     """Mark test as low severity."""
     return severity("low")(func)
 
 
-def smoke(func: F) -> F:
+def smoke[F](func: F) -> F:
     """Mark test as smoke test."""
     return tags("smoke")(func)
 
 
-def regression(func: F) -> F:
+def regression[F](func: F) -> F:
     """Mark test as regression test."""
     return tags("regression")(func)
 
 
-def integration(func: F) -> F:
+def integration[F](func: F) -> F:
     """Mark test as integration test."""
     return tags("integration")(func)
 
 
-def unit(func: F) -> F:
+def unit[F](func: F) -> F:
     """Mark test as unit test."""
     return tags("unit")(func)

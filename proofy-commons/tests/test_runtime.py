@@ -4,14 +4,7 @@ import threading
 import time
 from pathlib import Path
 
-import pytest
-
 from proofy.hooks.manager import reset_plugin_manager
-from proofy.runtime.context import (
-    TestContext,
-    get_current_test_context,
-    set_current_test_context,
-)
 from proofy.runtime.api import (
     add_attachment,
     add_metadata,
@@ -19,6 +12,11 @@ from proofy.runtime.api import (
     set_description,
     set_name,
     set_severity,
+)
+from proofy.runtime.context import (
+    TestContext,
+    get_current_test_context,
+    set_current_test_context,
 )
 
 
@@ -196,9 +194,7 @@ class TestRuntimeAPI:
 
             @hookimpl
             def proofy_add_attachment(self, test_id, file_path, name, mime_type=None):
-                self.calls.append(
-                    ("add_attachment", test_id, file_path, name, mime_type)
-                )
+                self.calls.append(("add_attachment", test_id, file_path, name, mime_type))
 
         plugin = TestPlugin()
         pm = get_plugin_manager()

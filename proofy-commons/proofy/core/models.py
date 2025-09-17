@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar
 
 
 class RunStatus(int, Enum):
@@ -48,10 +48,10 @@ class Attachment:
 
     name: str
     path: str
-    mime_type: Optional[str] = None
-    size_bytes: Optional[int] = None
-    remote_id: Optional[str] = None  # Server-assigned ID for uploaded attachments
-    file_id: Optional[str] = None  # Legacy compatibility with old project
+    mime_type: str | None = None
+    size_bytes: int | None = None
+    remote_id: str | None = None  # Server-assigned ID for uploaded attachments
+    file_id: str | None = None  # Legacy compatibility with old project
 
 
 @dataclass
@@ -61,16 +61,14 @@ class FixtureResult:
     name: str
     setup_ok: bool = True
     teardown_ok: bool = True
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class TestResult:
     """Unified test result model combining both projects' approaches."""
 
-    __test__: ClassVar[bool] = (
-        False  # Prevent pytest from treating this as a test class
-    )
+    __test__: ClassVar[bool] = False  # Prevent pytest from treating this as a test class
 
     # Core identification (from current project)
     id: str  # Local ID (nodeid)
@@ -78,42 +76,40 @@ class TestResult:
     path: str
 
     # Server integration (from old project)
-    run_id: Optional[int] = None
-    server_id: Optional[int] = None  # Server-generated ID for live mode
+    run_id: int | None = None
+    server_id: int | None = None  # Server-generated ID for live mode
 
     # Test execution details
-    nodeid: Optional[str] = None
-    outcome: Optional[str] = (
-        None  # passed, failed, skipped, error (current project format)
-    )
-    status: Optional[ResultStatus] = None  # Enum format (old project format)
+    nodeid: str | None = None
+    outcome: str | None = None  # passed, failed, skipped, error (current project format)
+    status: ResultStatus | None = None  # Enum format (old project format)
 
     # Timing information
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    duration_ms: Optional[float] = None  # Milliseconds (current project)
-    duration: Optional[int] = None  # Milliseconds (old project, for compatibility)
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    duration_ms: float | None = None  # Milliseconds (current project)
+    duration: int | None = None  # Milliseconds (old project, for compatibility)
 
     # Test context and metadata
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    markers: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    tags: List[str] = field(default_factory=list)
-    attributes: Dict[str, Any] = field(default_factory=dict)  # Old project format
-    properties: Optional[List[Property]] = None  # Old project format
-    meta_data: Optional[Dict[str, Any]] = None  # Old project format
+    parameters: dict[str, Any] = field(default_factory=dict)
+    markers: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    attributes: dict[str, Any] = field(default_factory=dict)  # Old project format
+    properties: list[Property] | None = None  # Old project format
+    meta_data: dict[str, Any] | None = None  # Old project format
 
     # Error information
-    error: Optional[str] = None
-    message: Optional[str] = None  # Old project format
-    traceback: Optional[str] = None
-    trace: Optional[str] = None  # Old project format
+    error: str | None = None
+    message: str | None = None  # Old project format
+    traceback: str | None = None
+    trace: str | None = None  # Old project format
 
     # Related entities
-    attachments: List[Attachment] = field(default_factory=list)
-    fixtures: List[FixtureResult] = field(default_factory=list)
+    attachments: list[Attachment] = field(default_factory=list)
+    fixtures: list[FixtureResult] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary with proper serialization."""
 
         def convert_value(val: Any) -> Any:
@@ -132,7 +128,7 @@ class TestResult:
         return {key: convert_value(value) for key, value in asdict(self).items()}
 
     @property
-    def effective_outcome(self) -> Optional[str]:
+    def effective_outcome(self) -> str | None:
         """Get effective outcome, prioritizing outcome over status."""
         if self.outcome:
             return self.outcome
@@ -147,7 +143,7 @@ class TestResult:
         return None
 
     @property
-    def effective_duration_ms(self) -> Optional[float]:
+    def effective_duration_ms(self) -> float | None:
         """Get effective duration in milliseconds."""
         if self.duration_ms is not None:
             return self.duration_ms
@@ -158,7 +154,7 @@ class TestResult:
             return delta.total_seconds() * 1000.0
         return None
 
-    def merge_metadata(self) -> Dict[str, Any]:
+    def merge_metadata(self) -> dict[str, Any]:
         """Merge all metadata sources into unified dict."""
         merged = {}
 

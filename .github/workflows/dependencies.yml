@@ -1,0 +1,147 @@
+name: Dependencies
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  update-dependencies:
+    name: "Update Dependencies"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install pip-tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-tools
+
+      - name: Check for dependency updates
+        id: check-updates
+        run: |
+          echo "Checking for dependency updates..."
+          
+          # Check proofy-commons
+          cd proofy-commons
+          if pip-compile --upgrade --dry-run pyproject.toml > /dev/null 2>&1; then
+            echo "proofy-commons-updates=true" >> $GITHUB_OUTPUT
+          else
+            echo "proofy-commons-updates=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check pytest-proofy
+          cd ../pytest-proofy
+          if pip-compile --upgrade --dry-run pyproject.toml > /dev/null 2>&1; then
+            echo "pytest-proofy-updates=true" >> $GITHUB_OUTPUT
+          else
+            echo "pytest-proofy-updates=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create dependency update PR
+        if: steps.check-updates.outputs.proofy-commons-updates == 'true' || steps.check-updates.outputs.pytest-proofy-updates == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update dependencies"
+          title: "chore: Update dependencies"
+          body: |
+            ## Dependency Updates
+            
+            This PR updates project dependencies to their latest versions.
+            
+            ### Changes
+            - Automated dependency updates
+            - Security patches included
+            
+            ### Testing
+            - [ ] All tests pass
+            - [ ] No breaking changes detected
+            - [ ] Security scan clean
+            
+            ---
+            *This PR was created automatically by the dependency update workflow.*
+          branch: chore/update-dependencies
+          delete-branch: true
+
+  security-audit:
+    name: "Security Audit"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e './proofy-commons[dev]'
+          pip install -e './pytest-proofy[dev]'
+          pip install safety pip-audit
+
+      - name: Run safety check
+        run: |
+          echo "::group::Safety vulnerability check"
+          safety check --json --output safety-report.json || true
+          safety check
+          echo "::endgroup::"
+
+      - name: Run pip-audit
+        run: |
+          echo "::group::Pip-audit vulnerability check"
+          pip-audit --format=json --output=pip-audit-report.json || true
+          pip-audit
+          echo "::endgroup::"
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-audit-reports
+          path: "*-report.json"
+          retention-days: 30
+
+  check-outdated:
+    name: "Check Outdated Packages"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e './proofy-commons[dev]'
+          pip install -e './pytest-proofy[dev]'
+
+      - name: Check for outdated packages
+        run: |
+          echo "::group::Outdated packages report"
+          pip list --outdated --format=columns || true
+          echo "::endgroup::"
+          
+          echo "::group::Dependency tree"
+          pip show proofy-commons pytest-proofy
+          echo "::endgroup::"

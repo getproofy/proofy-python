@@ -3,23 +3,35 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..hooks.manager import get_plugin_manager
 from .context import (
     add_attachment as _add_attachment,
+)
+from .context import (
     add_attributes as _add_attributes,
+)
+from .context import (
     add_file as _add_file,
+)
+from .context import (
     add_metadata as _add_metadata,
+)
+from .context import (
     add_tag as _add_tag,
+)
+from .context import (
     add_tags as _add_tags,
+)
+from .context import (
     get_current_test_context,
 )
 
 # ========== Test Metadata API ==========
 
 
-def set_name(name: str, test_id: Optional[str] = None) -> None:
+def set_name(name: str, test_id: str | None = None) -> None:
     """Set the display name for a test.
 
     Args:
@@ -37,7 +49,7 @@ def set_name(name: str, test_id: Optional[str] = None) -> None:
     pm.hook.proofy_set_name(test_id=test_id, name=name)
 
 
-def set_description(description: str, test_id: Optional[str] = None) -> None:
+def set_description(description: str, test_id: str | None = None) -> None:
     """Set the description for a test.
 
     Args:
@@ -55,7 +67,7 @@ def set_description(description: str, test_id: Optional[str] = None) -> None:
     pm.hook.proofy_set_description(test_id=test_id, description=description)
 
 
-def set_severity(severity: str, test_id: Optional[str] = None) -> None:
+def set_severity(severity: str, test_id: str | None = None) -> None:
     """Set the severity level for a test.
 
     Args:
@@ -73,7 +85,7 @@ def set_severity(severity: str, test_id: Optional[str] = None) -> None:
     pm.hook.proofy_set_severity(test_id=test_id, severity=severity)
 
 
-def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None:
+def add_metadata(key: str, value: Any, test_id: str | None = None) -> None:
     """Add a metadata key-value pair to a test.
 
     Args:
@@ -84,7 +96,7 @@ def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None:
     _add_metadata(key, value, test_id)
 
 
-def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
+def add_attributes(test_id: str | None = None, **kwargs: Any) -> None:
     """Add multiple attributes to a test.
 
     Args:
@@ -94,7 +106,7 @@ def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None:
     _add_attributes(test_id, **kwargs)
 
 
-def add_tag(tag: str, test_id: Optional[str] = None) -> None:
+def add_tag(tag: str, test_id: str | None = None) -> None:
     """Add a tag to a test.
 
     Args:
@@ -104,7 +116,7 @@ def add_tag(tag: str, test_id: Optional[str] = None) -> None:
     _add_tag(tag, test_id)
 
 
-def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
+def add_tags(tags: list[str], test_id: str | None = None) -> None:
     """Add multiple tags to a test.
 
     Args:
@@ -118,12 +130,12 @@ def add_tags(tags: List[str], test_id: Optional[str] = None) -> None:
 
 
 def add_attachment(
-    file: Union[str, Path],
+    file: str | Path,
     *,
     name: str,
-    mime_type: Optional[str] = None,
-    extension: Optional[str] = None,
-    test_id: Optional[str] = None,
+    mime_type: str | None = None,
+    extension: str | None = None,
+    test_id: str | None = None,
 ) -> None:
     """Add an attachment to a test.
 
@@ -134,19 +146,17 @@ def add_attachment(
         extension: File extension
         test_id: Target test ID (current test if None)
     """
-    _add_attachment(
-        file=file, name=name, mime_type=mime_type, extension=extension, test_id=test_id
-    )
+    _add_attachment(file=file, name=name, mime_type=mime_type, extension=extension, test_id=test_id)
 
 
 def add_file(
-    file: Union[str, Path],
+    file: str | Path,
     *,
     name: str,
-    content_type: Optional[str] = None,
-    mime_type: Optional[str] = None,
-    extension: Optional[str] = None,
-    test_id: Optional[str] = None,
+    content_type: str | None = None,
+    mime_type: str | None = None,
+    extension: str | None = None,
+    test_id: str | None = None,
 ) -> None:
     """Add a file attachment to a test.
 
@@ -189,7 +199,7 @@ def upload_file(
     name: str,
     content_type: str,
     extension: str,
-    test_id: Optional[str] = None,
+    test_id: str | None = None,
 ) -> None:
     """Legacy API for uploading files (compatibility with old project).
 
@@ -221,42 +231,42 @@ def add_run_name(name: str) -> None:
 # ========== Convenience Functions ==========
 
 
-def mark_as_critical(test_id: Optional[str] = None) -> None:
+def mark_as_critical(test_id: str | None = None) -> None:
     """Mark test as critical severity."""
     set_severity("critical", test_id)
 
 
-def mark_as_high(test_id: Optional[str] = None) -> None:
+def mark_as_high(test_id: str | None = None) -> None:
     """Mark test as high severity."""
     set_severity("high", test_id)
 
 
-def mark_as_medium(test_id: Optional[str] = None) -> None:
+def mark_as_medium(test_id: str | None = None) -> None:
     """Mark test as medium severity."""
     set_severity("medium", test_id)
 
 
-def mark_as_low(test_id: Optional[str] = None) -> None:
+def mark_as_low(test_id: str | None = None) -> None:
     """Mark test as low severity."""
     set_severity("low", test_id)
 
 
-def tag_as_smoke(test_id: Optional[str] = None) -> None:
+def tag_as_smoke(test_id: str | None = None) -> None:
     """Tag test as smoke test."""
     add_tag("smoke", test_id)
 
 
-def tag_as_regression(test_id: Optional[str] = None) -> None:
+def tag_as_regression(test_id: str | None = None) -> None:
     """Tag test as regression test."""
     add_tag("regression", test_id)
 
 
-def tag_as_integration(test_id: Optional[str] = None) -> None:
+def tag_as_integration(test_id: str | None = None) -> None:
     """Tag test as integration test."""
     add_tag("integration", test_id)
 
 
-def tag_as_unit(test_id: Optional[str] = None) -> None:
+def tag_as_unit(test_id: str | None = None) -> None:
     """Tag test as unit test."""
     add_tag("unit", test_id)
 
@@ -264,7 +274,7 @@ def tag_as_unit(test_id: Optional[str] = None) -> None:
 # ========== Context Information ==========
 
 
-def get_current_test_id() -> Optional[str]:
+def get_current_test_id() -> str | None:
     """Get the current test ID.
 
     Returns:
@@ -274,7 +284,7 @@ def get_current_test_id() -> Optional[str]:
     return ctx.test_id
 
 
-def get_current_server_id() -> Optional[int]:
+def get_current_server_id() -> int | None:
     """Get the current test's server-assigned ID.
 
     Returns:
@@ -284,7 +294,7 @@ def get_current_server_id() -> Optional[int]:
     return ctx.server_id
 
 
-def get_current_run_id() -> Optional[int]:
+def get_current_run_id() -> int | None:
     """Get the current run's server-assigned ID.
 
     Returns:

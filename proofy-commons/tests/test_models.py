@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from proofy.core.models import Attachment, ResultStatus, TestResult
 
 
@@ -12,9 +10,7 @@ class TestTestResult:
 
     def test_basic_creation(self):
         """Test basic TestResult creation."""
-        result = TestResult(
-            id="test_example", name="Example Test", path="/tests/test_example.py"
-        )
+        result = TestResult(id="test_example", name="Example Test", path="/tests/test_example.py")
 
         assert result.id == "test_example"
         assert result.name == "Example Test"
@@ -36,9 +32,7 @@ class TestTestResult:
         assert result.effective_outcome == "passed"
 
         # Test status fallback
-        result = TestResult(
-            id="test2", name="Test 2", path="/test2.py", status=ResultStatus.FAILED
-        )
+        result = TestResult(id="test2", name="Test 2", path="/test2.py", status=ResultStatus.FAILED)
         assert result.effective_outcome == "failed"
 
         # Test no outcome or status

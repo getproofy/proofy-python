@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import threading
-from typing import Optional
 
 from pluggy import PluginManager
 
 from .specs import ProofyHookSpecs
 
 # Global plugin manager instance
-_plugin_manager: Optional[PluginManager] = None
+_plugin_manager: PluginManager | None = None
 _manager_lock = threading.Lock()
 
 
@@ -66,7 +65,7 @@ class ProofyPluginManager:
         """Access to the hook calling interface."""
         return self._pm.hook
 
-    def register_plugin(self, plugin: object, name: Optional[str] = None) -> None:
+    def register_plugin(self, plugin: object, name: str | None = None) -> None:
         """Register a plugin with the manager.
 
         Args:

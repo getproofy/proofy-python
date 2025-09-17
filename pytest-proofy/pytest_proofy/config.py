@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 import pytest
 
@@ -17,9 +17,9 @@ class ProofyConfig:
 
     # Core settings
     mode: Mode = "lazy"
-    api_base: Optional[str] = None
-    token: Optional[str] = None
-    project_id: Optional[int] = None
+    api_base: str | None = None
+    token: str | None = None
+    project_id: int | None = None
 
     # Batch settings
     batch_size: int = 10
@@ -29,8 +29,8 @@ class ProofyConfig:
     always_backup: bool = False
 
     # Run settings
-    run_id: Optional[int] = None
-    run_name: Optional[str] = None
+    run_id: int | None = None
+    run_name: str | None = None
 
     # Feature flags
     enable_attachments: bool = True
@@ -148,9 +148,7 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
     Priority: CLI > ENV > pytest.ini > defaults
     """
 
-    def get_option(
-        name: str, env_name: str, ini_name: str, default=None, type_func=None
-    ):
+    def get_option(name: str, env_name: str, ini_name: str, default=None, type_func=None):
         """Get option value with priority: CLI > ENV > INI > default."""
         # CLI option (highest priority)
         cli_value = config.getoption(name, default=None)
@@ -203,9 +201,7 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
             False,
             bool,
         ),
-        run_id=get_option(
-            "proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int
-        ),
+        run_id=get_option("proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int),
         run_name=get_option("proofy_run_name", "PROOFY_RUN_NAME", "proofy_run_name"),
         enable_attachments=not get_option(
             "proofy_disable_attachments",
@@ -221,9 +217,7 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
             False,
             bool,
         ),
-        timeout_s=get_option(
-            "proofy_timeout", "PROOFY_TIMEOUT", "proofy_timeout", 30.0, float
-        ),
+        timeout_s=get_option("proofy_timeout", "PROOFY_TIMEOUT", "proofy_timeout", 30.0, float),
         max_retries=get_option(
             "proofy_max_retries", "PROOFY_MAX_RETRIES", "proofy_max_retries", 3, int
         ),
@@ -237,9 +231,7 @@ def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     parser.addini("proofy_token", "Proofy API token")
     parser.addini("proofy_project_id", "Proofy project ID")
     parser.addini("proofy_batch_size", "Batch size for results", default="10")
-    parser.addini(
-        "proofy_output_dir", "Output directory for backups", default="proofy-artifacts"
-    )
+    parser.addini("proofy_output_dir", "Output directory for backups", default="proofy-artifacts")
     parser.addini("proofy_always_backup", "Always create backup files", default="false")
     parser.addini("proofy_run_id", "Existing run ID")
     parser.addini("proofy_run_name", "Test run name")

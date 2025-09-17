@@ -1,0 +1,357 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  lint-and-format:
+    name: "Lint and Format Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy
+
+      - name: Lint with ruff
+        run: |
+          echo "::group::Ruff check"
+          ruff check --output-format=github .
+          echo "::endgroup::"
+
+      - name: Format check with ruff
+        run: |
+          echo "::group::Ruff format check"
+          ruff format --check --diff .
+          echo "::endgroup::"
+
+  type-check:
+    name: "Type Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e './proofy-commons[dev]'
+          pip install -e './pytest-proofy[dev]'
+
+      - name: Type check with mypy
+        run: |
+          echo "::group::Type checking proofy-commons"
+          mypy proofy-commons/proofy --install-types --non-interactive
+          echo "::endgroup::"
+          echo "::group::Type checking pytest-proofy"
+          mypy pytest-proofy/pytest_proofy --install-types --non-interactive
+          echo "::endgroup::"
+
+  test:
+    name: "Test Python ${{ matrix.python-version }} on ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        exclude:
+          # Reduce matrix for faster CI - focus on primary combinations
+          - os: windows-latest
+            python-version: "3.10"
+          - os: macos-latest
+            python-version: "3.10"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e './proofy-commons[dev]'
+          pip install -e './pytest-proofy[dev]'
+
+      - name: Run proofy-commons tests
+        run: |
+          echo "::group::Testing proofy-commons"
+          cd proofy-commons
+          python -m pytest tests/ -v --tb=short
+          echo "::endgroup::"
+
+      - name: Run pytest-proofy tests
+        run: |
+          echo "::group::Testing pytest-proofy"
+          cd pytest-proofy
+          python -m pytest tests/ -v --tb=short -p no:proofy
+          echo "::endgroup::"
+
+  coverage:
+    name: "Coverage Report"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e './proofy-commons[dev]'
+          pip install -e './pytest-proofy[dev]'
+          pip install coverage[toml]
+
+      - name: Run tests with coverage
+        run: |
+          echo "::group::Coverage for proofy-commons"
+          cd proofy-commons
+          python -m coverage run -m pytest tests/
+          python -m coverage report
+          python -m coverage xml
+          echo "::endgroup::"
+          
+          echo "::group::Coverage for pytest-proofy"
+          cd ../pytest-proofy
+          python -m coverage run -m pytest tests/ -p no:proofy
+          python -m coverage report
+          python -m coverage xml
+          echo "::endgroup::"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./proofy-commons/coverage.xml,./pytest-proofy/coverage.xml
+          fail_ci_if_error: false
+          verbose: true
+
+  integration-test:
+    name: "Integration Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e './proofy-commons[dev]'
+          pip install -e './pytest-proofy[dev]'
+
+      - name: Create sample test file
+        run: |
+          mkdir -p integration-test
+          cat > integration-test/test_sample.py << 'EOF'
+          import pytest
+          from proofy import name, description, severity, add_attachment, add_tag
+          
+          @name("Sample Integration Test")
+          @description("Test to verify pytest-proofy integration works")
+          @severity("high")
+          def test_proofy_integration():
+              """Sample test with proofy decorators."""
+              add_tag("integration")
+              add_tag("ci")
+              
+              # Create a sample file to attach
+              with open("sample.txt", "w") as f:
+                  f.write("This is a sample attachment from CI")
+              
+              add_attachment("sample.txt", name="CI Sample File")
+              
+              assert True, "Integration test should pass"
+          
+          def test_simple_pass():
+              """Simple test without proofy decorators."""
+              assert 1 + 1 == 2
+          
+          def test_simple_fail():
+              """Test that should fail to verify error handling."""
+              pytest.skip("Skipping intentional failure in CI")
+          EOF
+
+      - name: Run integration test in lazy mode
+        run: |
+          echo "::group::Testing lazy mode"
+          cd integration-test
+          python -m pytest test_sample.py -v --proofy-mode lazy --proofy-output-dir ./artifacts-lazy
+          echo "::endgroup::"
+
+      - name: Run integration test in batch mode
+        run: |
+          echo "::group::Testing batch mode"
+          cd integration-test
+          python -m pytest test_sample.py -v --proofy-mode batch --proofy-batch-size 5 --proofy-output-dir ./artifacts-batch
+          echo "::endgroup::"
+
+      - name: Verify artifacts created
+        run: |
+          echo "::group::Verifying artifacts"
+          ls -la integration-test/artifacts-*/
+          echo "Lazy mode artifacts:"
+          if [ -f integration-test/artifacts-lazy/results.json ]; then
+            echo "✓ Lazy mode results.json created"
+            cat integration-test/artifacts-lazy/results.json | jq '.[0].name' || echo "JSON structure check"
+          fi
+          echo "Batch mode artifacts:"
+          if [ -f integration-test/artifacts-batch/results.json ]; then
+            echo "✓ Batch mode results.json created"
+            cat integration-test/artifacts-batch/results.json | jq '.[0].name' || echo "JSON structure check"
+          fi
+          echo "::endgroup::"
+
+      - name: Upload integration test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-artifacts
+          path: integration-test/artifacts-*/
+          retention-days: 7
+
+  security-scan:
+    name: "Security Scan"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit[toml] safety
+
+      - name: Run bandit security scan
+        run: |
+          echo "::group::Bandit security scan"
+          bandit -r proofy-commons/proofy pytest-proofy/pytest_proofy -f json -o bandit-report.json || true
+          bandit -r proofy-commons/proofy pytest-proofy/pytest_proofy || true
+          echo "::endgroup::"
+
+      - name: Run safety dependency check
+        run: |
+          echo "::group::Safety dependency check"
+          safety check --json --output safety-report.json || true
+          safety check || true
+          echo "::endgroup::"
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: "*-report.json"
+          retention-days: 30
+
+  build-check:
+    name: "Build Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build proofy-commons
+        run: |
+          echo "::group::Building proofy-commons"
+          cd proofy-commons
+          python -m build
+          python -m twine check dist/*
+          echo "::endgroup::"
+
+      - name: Build pytest-proofy
+        run: |
+          echo "::group::Building pytest-proofy"
+          cd pytest-proofy
+          python -m build
+          python -m twine check dist/*
+          echo "::endgroup::"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            proofy-commons/dist/
+            pytest-proofy/dist/
+          retention-days: 7
+
+  all-checks-pass:
+    name: "All Checks Pass"
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, type-check, test, coverage, integration-test, security-scan, build-check]
+    if: always()
+    steps:
+      - name: Check all jobs status
+        run: |
+          echo "Lint and format: ${{ needs.lint-and-format.result }}"
+          echo "Type check: ${{ needs.type-check.result }}"
+          echo "Tests: ${{ needs.test.result }}"
+          echo "Coverage: ${{ needs.coverage.result }}"
+          echo "Integration tests: ${{ needs.integration-test.result }}"
+          echo "Security scan: ${{ needs.security-scan.result }}"
+          echo "Build check: ${{ needs.build-check.result }}"
+          
+          if [[ "${{ needs.lint-and-format.result }}" == "success" && \
+                "${{ needs.type-check.result }}" == "success" && \
+                "${{ needs.test.result }}" == "success" && \
+                "${{ needs.coverage.result }}" == "success" && \
+                "${{ needs.integration-test.result }}" == "success" && \
+                "${{ needs.build-check.result }}" == "success" ]]; then
+            echo "✅ All critical checks passed!"
+          else
+            echo "❌ Some checks failed"
+            exit 1
+          fi

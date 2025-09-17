@@ -1,0 +1,40 @@
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 5%
+        base: auto
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+
+github_checks:
+  annotations: true
+
+ignore:
+  - "*/tests/*"
+  - "*/test_*"
+  - "*/__pycache__/*"
+  - "*/conftest.py"
+  - "setup.py"
+
+flags:
+  proofy-commons:
+    paths:
+      - proofy-commons/proofy/
+  pytest-proofy:
+    paths:
+      - pytest-proofy/pytest_proofy/
