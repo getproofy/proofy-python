@@ -7,7 +7,7 @@ name = "pytest-proofy"
 version = "0.1.0"
 description = "Pytest plugin for Proofy test reporting"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 authors = [
     { name = "Proofy Team", email = "team@proofy.io" },
 ]
@@ -20,6 +20,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Testing",
 ]
@@ -30,6 +31,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "pytest-xdist>=3.0",
     "pytest-cov>=4.1",
     "coverage[toml]>=7.0",
     "mypy>=1.10",

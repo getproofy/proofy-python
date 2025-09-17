@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
+from ..export.attachments import (
+    cache_attachment,
+    should_cache_for_mode,
+)
 from ..hooks.manager import get_plugin_manager
 
 
@@ -293,9 +298,23 @@ def add_file(
     # Use mime_type if content_type not provided
     final_content_type = content_type or mime_type
 
+    original_path = Path(file)
+    path_to_store = original_path
+
+    # Decide caching strategy using env-based mode (works across frameworks)
+    try:
+        mode = os.getenv("PROOFY_MODE")
+        if should_cache_for_mode(mode):
+            # Copy to cache for reliability (will raise if source missing)
+            path_to_store = cache_attachment(original_path)
+    except Exception:
+        # If caching fails, fall back to original path
+        path_to_store = original_path
+
     file_info = {
         "name": name,
-        "path": str(file),
+        "path": str(path_to_store),
+        "original_path": str(original_path),
         "content_type": final_content_type,
         "mime_type": final_content_type,  # Compatibility
         "extension": extension,
@@ -307,7 +326,7 @@ def add_file(
     pm = get_plugin_manager()
     pm.hook.proofy_add_attachment(
         test_id=test_id or ctx.test_id,
-        file_path=str(file),
+        file_path=str(path_to_store),
         name=name,
         mime_type=final_content_type,
     )

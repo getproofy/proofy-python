@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import mimetypes
+import os
 import uuid
 from collections.abc import Generator
 from datetime import datetime
@@ -24,6 +26,7 @@ from proofy import (
     hookimpl,
     set_current_test_context,
 )
+from proofy.export.attachments import is_cache_enabled
 from pytest import CallInfo
 
 from .config import (
@@ -134,7 +137,7 @@ class ProofyPytestPlugin:
                 result.metadata.update(ctx.metadata)
             if ctx.attributes:
                 result.attributes.update(ctx.attributes)
-            if ctx.files:
+            if self.config.enable_attachments and ctx.files:
                 for file_info in ctx.files:
                     attachment = Attachment(
                         name=file_info["name"],
@@ -190,12 +193,20 @@ class ProofyPytestPlugin:
 
                 # Send attachments using new S3 workflow
                 for attachment in result.attachments:
+                    # Skip already uploaded attachments
+                    if getattr(attachment, "remote_id", None):
+                        continue
                     try:
+                        # Guess content type if not provided
+                        guessed, _ = mimetypes.guess_type(attachment.path)
+                        effective_mime = (
+                            attachment.mime_type or guessed or "application/octet-stream"
+                        )
                         self.client.upload_attachment_s3(
-                            result_id=result.server_id,
+                            result_id=int(result.server_id),
                             file_name=attachment.name,
                             file_path=attachment.path,
-                            content_type=attachment.mime_type or "application/octet-stream",
+                            content_type=effective_mime,
                         )
                     except Exception as e:
                         print(f"Failed to upload attachment {attachment.name}: {e}")
@@ -271,6 +282,15 @@ def pytest_configure(config: pytest.Config) -> None:
 
     proofy_config = resolve_options(config)
     _plugin_instance = ProofyPytestPlugin(proofy_config)
+
+    # Propagate mode and output dir to environment for proofy-commons caching logic
+    try:
+        if proofy_config.mode:
+            os.environ.setdefault("PROOFY_MODE", proofy_config.mode)
+        if proofy_config.output_dir:
+            os.environ.setdefault("PROOFY_OUTPUT_DIR", proofy_config.output_dir)
+    except Exception:
+        pass
 
     # Store plugin instance in config for access
     config._proofy_plugin = _plugin_instance  # type: ignore[attr-defined]
@@ -512,13 +532,48 @@ class PytestProofyHooks:
         self, test_id: str, file_path: str, name: str, mime_type: str | None = None
     ) -> None:
         """Called to add attachment."""
-        if _plugin_instance and test_id in _plugin_instance.test_results:
-            result = _plugin_instance.test_results[test_id]
-            attachment = Attachment(
-                name=name,
-                path=file_path,
-                mime_type=mime_type,
-            )
+        if not _plugin_instance:
+            return
+
+        plugin = _plugin_instance
+
+        # Skip processing entirely if attachments are disabled
+        if not plugin.config.enable_attachments:
+            return
+
+        # Live mode without caching: try to upload immediately (no local copy)
+        if (
+            plugin.config.mode == "live"
+            and not is_cache_enabled()
+            and plugin.client is not None
+            and test_id in plugin.test_results
+        ):
+            try:
+                result = plugin.test_results[test_id]
+                if result.server_id is None:
+                    return
+                # Determine effective content type
+                guessed, _ = mimetypes.guess_type(file_path)
+                effective_mime = mime_type or guessed or "application/octet-stream"
+                resp = plugin.client.upload_attachment_s3(
+                    result_id=int(result.server_id),
+                    file_name=name,
+                    file_path=file_path,
+                    content_type=effective_mime,
+                )
+                # Record attachment with remote_id to avoid duplicate upload later
+                attachment = Attachment(name=name, path=file_path, mime_type=effective_mime)
+                if isinstance(resp, dict):
+                    attachment.remote_id = resp.get("id") or resp.get("attachment_id")
+                result.attachments.append(attachment)
+                return
+            except Exception as e:
+                print(f"Failed to upload attachment immediately '{name}': {e}")
+
+        # Append attachment to result if it exists (path supplied by commons may already be cached)
+        if test_id in plugin.test_results:
+            result = plugin.test_results[test_id]
+            attachment = Attachment(name=name, path=file_path, mime_type=mime_type)
             result.attachments.append(attachment)
 
     @hookimpl

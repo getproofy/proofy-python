@@ -28,6 +28,8 @@ class ProofyConfig:
     output_dir: str = "proofy-artifacts"
     always_backup: bool = False
 
+    cache_attachments: bool = True
+
     # Run settings
     run_id: int | None = None
     run_name: str | None = None

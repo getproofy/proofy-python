@@ -76,7 +76,7 @@ from .runtime.decorators import (
 # Version info
 __version__ = "0.1.0"
 __author__ = "Proofy Team"
-__email__ = "team@proofy.io"
+__email__ = "team@proofy.dev"
 
 # Public API
 __all__ = [

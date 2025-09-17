@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -124,7 +125,7 @@ class TestXdistE2E:
 
         # Run pytest with xdist and proofy plugin
         cmd = [
-            "python3",
+            sys.executable,
             "-m",
             "pytest",
             str(sample_test_project),
@@ -175,7 +176,7 @@ class TestXdistE2E:
 
         # Run with more workers than we have test files to test coordination
         cmd = [
-            "python3",
+            sys.executable,
             "-m",
             "pytest",
             str(sample_test_project),
@@ -206,9 +207,11 @@ class TestXdistE2E:
         """Test xdist behavior with failing tests."""
         # Add a failing test
         failing_test = '''
+
 def test_failing():
     """This test will fail."""
     assert False, "Intentional failure"
+
 
 def test_passing_after_failure():
     """This test should still run."""
@@ -219,7 +222,7 @@ def test_passing_after_failure():
         output_dir = sample_test_project / "proofy-output"
 
         cmd = [
-            "python",
+            sys.executable,
             "-m",
             "pytest",
             str(sample_test_project),
@@ -278,7 +281,7 @@ def test_passing_after_failure():
 
         # Run without xdist (sequential)
         cmd_sequential = [
-            "python",
+            sys.executable,
             "-m",
             "pytest",
             str(sample_test_project),
@@ -342,7 +345,7 @@ def test_passing_after_failure():
         output_dir = sample_test_project / "proofy-output"
 
         base_cmd = [
-            "python",
+            sys.executable,
             "-m",
             "pytest",
             str(sample_test_project),
@@ -408,7 +411,7 @@ def test_passing_after_failure():
 
         # Use many workers to test coordination
         cmd = [
-            "python",
+            sys.executable,
             "-m",
             "pytest",
             str(sample_test_project),
