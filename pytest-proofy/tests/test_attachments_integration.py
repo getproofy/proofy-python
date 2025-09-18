@@ -66,7 +66,7 @@ def test_live_mode_immediate_upload_without_cache(tmp_path: Path, monkeypatch: p
     # And: result has one attachment with remote_id and original path (no cache)
     assert len(plugin.test_results[test_id].attachments) == 1
     att = plugin.test_results[test_id].attachments[0]
-    assert att.path == src.as_posix()
+    assert att.path == str(src)
     assert att.remote_id == "att-xyz"
     assert ".attachments_cache" not in att.path
 
