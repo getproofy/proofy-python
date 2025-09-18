@@ -60,7 +60,7 @@ def test_live_mode_immediate_upload_without_cache(tmp_path: Path, monkeypatch: p
     args, kwargs = mock_client.upload_attachment_s3.call_args
     assert kwargs.get("result_id") == 1001
     assert kwargs.get("file_name") == "Immediate"
-    assert kwargs.get("file_path") == src.as_posix()
+    assert kwargs.get("file_path") == str(src)
     assert kwargs.get("content_type") == "text/plain"
 
     # And: result has one attachment with remote_id and original path (no cache)
