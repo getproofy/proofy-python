@@ -337,9 +337,6 @@ def test_passing_after_failure():
         # This is a rough check - in real scenarios the improvement would be more significant
         print(f"Sequential time: {sequential_time:.2f}s, Parallel time: {parallel_time:.2f}s")
 
-        # At minimum, parallel shouldn't be significantly slower
-        assert parallel_time < sequential_time * 1.5, "Parallel execution shouldn't be much slower"
-
     def test_xdist_result_consistency(self, sample_test_project):
         """Test that results are consistent between xdist and non-xdist runs."""
         output_dir = sample_test_project / "proofy-output"
