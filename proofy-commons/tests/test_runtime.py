@@ -170,7 +170,7 @@ class TestRuntimeAPI:
 
         attachment = ctx.files[0]
         assert attachment["name"] == "test_attachment"
-        assert attachment["path"] == test_file
+        assert attachment["path"] == str(test_file)
         assert attachment["mime_type"] == "text/plain"
         assert attachment["content_type"] == "text/plain"  # Compatibility
 
