@@ -66,7 +66,7 @@ def test_add_attachment_no_cache_in_live_mode_when_disabled(
     assert len(ctx.files) == 1
     info = ctx.files[0]
     # Path should remain original when caching is disabled in live mode
-    assert info["path"] == str(src_file)
+    assert info["path"] == src_file.as_posix()
     # Cache directory should not contain the file
     cache_dir = out_dir / ".attachments_cache"
     if cache_dir.exists():
@@ -110,15 +110,15 @@ def test_hook_receives_cached_path(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 def test_add_attachment_fallback_when_source_missing(monkeypatch: pytest.MonkeyPatch):
     # Given
-    missing_path = str(Path("/tmp/does_not_exist_file.txt"))
+    missing_path = Path("/tmp/does_not_exist_file.txt")
     monkeypatch.setenv("PROOFY_MODE", "lazy")
     monkeypatch.delenv("PROOFY_DISABLE_ATTACHMENT_CACHE", raising=False)
     monkeypatch.delenv("PROOFY_OUTPUT_DIR", raising=False)
 
     # When: Should not raise, and should fall back to original path
-    add_attachment(file=missing_path, name="missing", mime_type="text/plain")
+    add_attachment(file=str(missing_path), name="missing", mime_type="text/plain")
 
     # Then
     ctx = get_current_test_context()
     info = ctx.files[0]
-    assert info["path"] == missing_path
+    assert info["path"] == missing_path.as_posix()

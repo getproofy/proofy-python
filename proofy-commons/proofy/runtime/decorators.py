@@ -168,7 +168,7 @@ def attributes(**attrs: Any) -> Callable[[F], F]:
             return cast(F, wrapper)
         else:
             setattr(obj, "__proofy_attributes__", attrs)  # noqa: B010
-            return cast(F, obj)
+            return obj  # type: ignore[return-value]
 
     return decorator
 
