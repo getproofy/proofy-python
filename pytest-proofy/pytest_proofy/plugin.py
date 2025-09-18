@@ -26,7 +26,11 @@ from proofy import (
     hookimpl,
     set_current_test_context,
 )
-from proofy.export.attachments import is_cache_enabled
+from proofy.export.attachments import (
+    clear_attachments_cache,
+    create_artifacts_zip,
+    is_cache_enabled,
+)
 from pytest import CallInfo
 
 from .config import (
@@ -311,6 +315,10 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     if not _plugin_instance:
         return
 
+    # Clear attachments cache before starting tests (only on master, not workers)
+    if not is_xdist_worker(session):
+        clear_attachments_cache(_plugin_instance.config.output_dir)
+
     # Create run if using live or batch mode (only on master, not workers)
     if _plugin_instance.config.mode in ("live", "batch") and not is_xdist_worker(
         session
@@ -476,6 +484,10 @@ def _backup_results_locally(plugin: ProofyPytestPlugin) -> None:
         # If we're the master and there are worker files, merge them
         if not worker_id:
             _merge_worker_results(output_dir)
+
+        # Create zip archive if always_backup is enabled
+        if plugin.config.always_backup and not worker_id:
+            create_artifacts_zip(output_dir)
 
     except Exception as e:
         print(f"Failed to backup results locally: {e}")
