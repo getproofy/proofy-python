@@ -118,6 +118,10 @@ exclude = [
     ".*/test_.*",
 ]
 
+[[tool.mypy.overrides]]
+module = ["pluggy.*", "pytest.*", "_pytest.*"]
+ignore_missing_imports = true
+
 [tool.coverage.run]
 source = [
     "proofy-commons/proofy",

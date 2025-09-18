@@ -80,15 +80,15 @@ class ProofyPytestPlugin:
             return f"{item.cls.__name__}::{item.name}"
         return item.name
 
-    def _get_test_path(self, item: pytest.Item) -> str:
+    def _get_test_path(self, item: pytest.Item) -> Path:
         """Get relative path for test."""
         try:
             root = getattr(item.config, "rootpath", None) or getattr(item.config, "rootdir", None)
             if root:
-                return str(Path(item.fspath).relative_to(Path(str(root))))
+                return Path(item.fspath).relative_to(Path(root))
         except Exception:
             pass
-        return str(item.fspath)
+        return Path(item.fspath)
 
     def _outcome_to_status(self, outcome: str) -> ResultStatus:
         """Convert pytest outcome to ResultStatus."""
@@ -115,7 +115,7 @@ class ProofyPytestPlugin:
         result = TestResult(
             id=test_id,
             name=self._get_test_name(item),
-            path=self._get_test_path(item),
+            path=self._get_test_path(item).as_posix(),
             nodeid=item.nodeid,
             outcome=report.outcome,
             status=self._outcome_to_status(report.outcome),
@@ -346,7 +346,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
             result = TestResult(
                 id=test_id,
                 name=_plugin_instance._get_test_name(item),
-                path=_plugin_instance._get_test_path(item),
+                path=_plugin_instance._get_test_path(item).as_posix(),
                 nodeid=item.nodeid,
                 status=ResultStatus.IN_PROGRESS,
                 started_at=datetime.now(),

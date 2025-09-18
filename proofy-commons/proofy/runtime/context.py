@@ -299,6 +299,8 @@ def add_file(
     final_content_type = content_type or mime_type
 
     original_path = Path(file)
+    # Preserve the caller's original string formatting (slashes) when possible
+    original_path_string = str(file) if isinstance(file, Path) else file
     path_to_store = original_path
 
     # Decide caching strategy using env-based mode (works across frameworks)
@@ -311,10 +313,16 @@ def add_file(
         # If caching fails, fall back to original path
         path_to_store = original_path
 
+    # Keep original formatting if we didn't produce a new cached path
+    if path_to_store is original_path:
+        path_to_store_string = original_path_string
+    else:
+        path_to_store_string = str(path_to_store)
+
     file_info = {
         "name": name,
-        "path": path_to_store.as_posix(),
-        "original_path": str(original_path),
+        "path": path_to_store_string,
+        "original_path": original_path_string,
         "content_type": final_content_type,
         "mime_type": final_content_type,  # Compatibility
         "extension": extension,
@@ -326,7 +334,7 @@ def add_file(
     pm = get_plugin_manager()
     pm.hook.proofy_add_attachment(
         test_id=test_id or ctx.test_id,
-        file_path=path_to_store.as_posix(),
+        file_path=path_to_store_string,
         name=name,
         mime_type=final_content_type,
     )

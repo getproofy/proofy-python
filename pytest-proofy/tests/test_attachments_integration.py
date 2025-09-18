@@ -60,19 +60,20 @@ def test_live_mode_immediate_upload_without_cache(tmp_path: Path, monkeypatch: p
     args, kwargs = mock_client.upload_attachment_s3.call_args
     assert kwargs.get("result_id") == 1001
     assert kwargs.get("file_name") == "Immediate"
-    assert kwargs.get("file_path") == str(src)
+    assert kwargs.get("file_path") == src.as_posix()
     assert kwargs.get("content_type") == "text/plain"
 
     # And: result has one attachment with remote_id and original path (no cache)
     assert len(plugin.test_results[test_id].attachments) == 1
     att = plugin.test_results[test_id].attachments[0]
-    assert att.path == str(src)
+    assert att.path == src.as_posix()
     assert att.remote_id == "att-xyz"
     assert ".attachments_cache" not in att.path
 
 
 def test_live_mode_upload_during_send_with_cache_enabled(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     # Given: live mode with cache enabled (default), output dir set
     monkeypatch.setenv("PROOFY_MODE", "live")

@@ -27,4 +27,4 @@ repos:
             ".*/test_.*",
           ]
         files: ^(proofy-commons/proofy|pytest-proofy/pytest_proofy)/.*\.py$
-        additional_dependencies: ["types-requests", "pytest"]
+        additional_dependencies: ["types-requests", "pytest", "pluggy"]

@@ -101,7 +101,7 @@ class TestProofyPytestPlugin:
         mock_item.config = Mock()
         mock_item.config.rootpath = "/project"
 
-        test_path = plugin._get_test_path(mock_item)
+        test_path = plugin._get_test_path(mock_item).as_posix()
         assert test_path == "tests/test_example.py"
 
     def test_outcome_to_status_mapping(self):
