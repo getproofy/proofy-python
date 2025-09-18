@@ -66,7 +66,7 @@ def test_add_attachment_no_cache_in_live_mode_when_disabled(
     assert len(ctx.files) == 1
     info = ctx.files[0]
     # Path should remain original when caching is disabled in live mode
-    assert info["path"] == src_file.as_posix()
+    assert info["path"] == src_file
     # Cache directory should not contain the file
     cache_dir = out_dir / ".attachments_cache"
     if cache_dir.exists():
@@ -121,4 +121,4 @@ def test_add_attachment_fallback_when_source_missing(monkeypatch: pytest.MonkeyP
     # Then
     ctx = get_current_test_context()
     info = ctx.files[0]
-    assert info["path"] == missing_path.as_posix()
+    assert info["path"] == missing_path

@@ -29,13 +29,13 @@ jobs:
       - name: Lint with ruff
         run: |
           echo "::group::Ruff check"
-          uvx ruff check --output-format=github .
+          uvx --from ruff==0.6.9 ruff check --output-format=github .
           echo "::endgroup::"
 
       - name: Format check with ruff
         run: |
           echo "::group::Ruff format check"
-          uvx ruff format --check --diff .
+          uvx --from ruff==0.6.9 ruff format --check --diff .
           echo "::endgroup::"
 
   type-check:
@@ -54,15 +54,18 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
 
-      - name: Install dependencies
+      - name: Create venv and install dependencies with uv
         run: |
+          uv venv .venv
+          . .venv/bin/activate
           uv pip install -e './proofy-commons[dev]'
           uv pip install -e './pytest-proofy[dev]'
+          uv pip install 'mypy==1.11.2'
 
       - name: Type check with mypy
         run: |
           echo "::group::Type checking (mypy with project config)"
-          python -m mypy \
+          ./.venv/bin/python -m mypy \
             --config-file pyproject.toml \
             --install-types --non-interactive \
             proofy-commons/proofy \
