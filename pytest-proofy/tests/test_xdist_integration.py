@@ -110,18 +110,15 @@ class TestXdistIntegration:
         mock_plugin.config = self.config
         mock_plugin.config.always_backup = True  # Enable backup
         mock_plugin.client = None  # No client to trigger backup
-        mock_plugin.test_results = {"test1": Mock()}
+        mock_plugin.results_handler = Mock()
 
-        with (
-            patch("pytest_proofy.plugin._plugin_instance", mock_plugin),
-            patch("pytest_proofy.plugin._backup_results_locally") as mock_backup,
-        ):
+        with patch("pytest_proofy.plugin._plugin_instance", mock_plugin):
             pytest_sessionfinish(mock_worker_session, 0)
 
             # Worker should not finalize run
             mock_plugin._finalize_run.assert_not_called()
-            # But should backup results
-            mock_backup.assert_called_once_with(mock_plugin)
+            # But should backup results via handler (merge only on master)
+            assert mock_plugin.results_handler.backup_results.called
 
         # Reset the mock for master test
         mock_plugin.reset_mock()
@@ -130,16 +127,14 @@ class TestXdistIntegration:
         mock_master_session = Mock()
         mock_master_session.config = Mock(spec=[])  # No workerinput = master
 
-        with (
-            patch("pytest_proofy.plugin._plugin_instance", mock_plugin),
-            patch("pytest_proofy.plugin._backup_results_locally") as mock_backup,
-        ):
+        with patch("pytest_proofy.plugin._plugin_instance", mock_plugin):
             pytest_sessionfinish(mock_master_session, 0)
 
             # Master should finalize run
             mock_plugin._finalize_run.assert_called_once()
-            # And backup results
-            mock_backup.assert_called_once_with(mock_plugin)
+            # And backup results via handler, with merge on master
+            assert mock_plugin.results_handler.backup_results.called
+            assert mock_plugin.results_handler.merge_worker_results.called
 
 
 class TestXdistWorkerCoordination:
@@ -194,15 +189,17 @@ class TestXdistWorkerCoordination:
         result1 = TestResult(id="test1", name="Test 1", path="test1.py", run_id=42)
         result2 = TestResult(id="test2", name="Test 2", path="test2.py", run_id=42)
 
-        worker1_plugin.test_results["test1"] = result1
-        worker2_plugin.test_results["test2"] = result2
+        assert worker1_plugin.results_handler is not None
+        assert worker2_plugin.results_handler is not None
+        worker1_plugin.results_handler.on_test_finished(result1)
+        worker2_plugin.results_handler.on_test_finished(result2)
 
         # Verify isolation
-        assert "test1" in worker1_plugin.test_results
-        assert "test2" not in worker1_plugin.test_results
+        assert any(r.id == "test1" for r in worker1_plugin.results_handler._results)
+        assert not any(r.id == "test2" for r in worker1_plugin.results_handler._results)
 
-        assert "test2" in worker2_plugin.test_results
-        assert "test1" not in worker2_plugin.test_results
+        assert any(r.id == "test2" for r in worker2_plugin.results_handler._results)
+        assert not any(r.id == "test1" for r in worker2_plugin.results_handler._results)
 
     def test_node_hooks_called(self):
         """Test that xdist node hooks are properly handled."""
@@ -273,7 +270,8 @@ class TestXdistResultHandling:
         results = []
         for i in range(3):
             result = TestResult(id=f"test{i}", name=f"Test {i}", path=f"test{i}.py", run_id=42)
-            plugin.test_results[f"test{i}"] = result
+            assert plugin.results_handler is not None
+            plugin.results_handler.on_test_finished(result)
             results.append(result)
 
         # Simulate session finish
@@ -285,7 +283,8 @@ class TestXdistResultHandling:
 
         with (
             patch("pytest_proofy.plugin._plugin_instance", plugin),
-            patch("pytest_proofy.plugin._backup_results_locally"),
+            patch("pytest_proofy.plugin.ResultsHandler.backup_results"),
+            patch("pytest_proofy.plugin.ResultsHandler.merge_worker_results"),
         ):
             pytest_sessionfinish(mock_session, 0)
 

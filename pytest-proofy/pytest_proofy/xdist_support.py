@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -38,7 +37,6 @@ def register_xdist_hooks(plugin_manager: Any, plugin_instance: Any) -> None:
                     {
                         "proofy_config_dict": self.plugin_instance.config.__dict__,
                         "proofy_run_id": self.plugin_instance.run_id,
-                        "proofy_session_id": self.plugin_instance.session_id,
                     }
                 )
 
@@ -90,7 +88,6 @@ def setup_worker_plugin(session: Any) -> Any:
 
         # Use shared run_id from master
         plugin.run_id = workerinput.get("proofy_run_id")
-        plugin.session_id = workerinput.get("proofy_session_id", str(uuid.uuid4()))
 
         # Store plugin instance in config for access
         session.config._proofy_plugin = plugin
@@ -109,5 +106,14 @@ def transfer_config_to_workers(plugin_instance: Any) -> dict[str, Any]:
     return {
         "proofy_config_dict": plugin_instance.config.__dict__,
         "proofy_run_id": plugin_instance.run_id,
-        "proofy_session_id": plugin_instance.session_id,
     }
+
+
+def unregister_xdist_hooks(plugin_manager: Any) -> None:
+    """Unregister xdist hooks."""
+    if not XDIST_AVAILABLE:
+        return
+    try:
+        plugin_manager.unregister(plugin_manager.get("proofy_xdist_hooks"))
+    except Exception:
+        pass

@@ -4,20 +4,18 @@ import threading
 import time
 from pathlib import Path
 
-from proofy.hooks.manager import reset_plugin_manager
-from proofy.runtime.api import (
+from proofy import TestResult as TestContext
+from proofy.api import (
     add_attachment,
     add_metadata,
     add_tag,
+    get_current_test_context,
+    set_current_test_context,
     set_description,
     set_name,
     set_severity,
 )
-from proofy.runtime.context import (
-    TestContext,
-    get_current_test_context,
-    set_current_test_context,
-)
+from proofy.hooks.manager import reset_plugin_manager
 
 
 class TestTestContext:

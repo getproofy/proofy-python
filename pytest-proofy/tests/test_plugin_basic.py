@@ -1,6 +1,5 @@
 """Basic tests for pytest-proofy plugin."""
 
-from datetime import datetime
 from unittest.mock import Mock, patch
 
 from pytest_proofy.config import ProofyConfig
@@ -26,8 +25,7 @@ class TestProofyPytestPlugin:
         assert plugin.config == self.config
         assert plugin.client is not None
         assert plugin.run_id is None
-        assert plugin.test_results == {}
-        assert plugin.test_start_times == {}
+        assert plugin.results_handler is not None
 
     def test_plugin_without_api_config(self):
         """Test plugin initialization without API configuration."""
@@ -146,9 +144,7 @@ class TestProofyPytestPlugin:
         mock_ctx.files = []
         mock_get_ctx.return_value = mock_ctx
 
-        # Set start time
-        start_time = datetime.now()
-        plugin.test_start_times["tests/test_example.py::test_function"] = start_time
+        # No plugin-managed start times; duration derives from report
 
         result = plugin._create_test_result(mock_item, mock_report)
 

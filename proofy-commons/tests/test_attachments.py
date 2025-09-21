@@ -1,10 +1,9 @@
 from pathlib import Path
 
 import pytest
+from proofy.api import add_attachment, get_current_test_context, set_current_test_context
 from proofy.hooks.manager import get_plugin_manager, reset_plugin_manager
 from proofy.hooks.specs import hookimpl
-from proofy.runtime.api import add_attachment
-from proofy.runtime.context import get_current_test_context, set_current_test_context
 
 
 @pytest.fixture(autouse=True)

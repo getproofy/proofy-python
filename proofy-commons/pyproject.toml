@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "proofy-commons"
+name = "proofy"
 version = "0.1.0"
 description = "Shared components for Proofy Python testing framework integrations"
 readme = "README.md"
@@ -83,5 +83,6 @@ ignore_errors = true
 module = "pluggy.*"
 ignore_missing_imports = true
 
-[tool.setuptools]
-packages = ["proofy"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["proofy*"]

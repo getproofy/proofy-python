@@ -6,28 +6,25 @@ import json
 import logging
 import urllib.parse
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, cast
 
 import requests
+
+from proofy.utils import format_datetime_rfc3339
 
 from .models import ResultStatus, RunStatus, TestResult
 
 logger = logging.getLogger(__name__)
 
 
-def format_datetime_rfc3339(dt: datetime | str) -> str:
-    """Format datetime to RFC 3339 format."""
-    if isinstance(dt, str):
-        return dt  # Already formatted, assume it's correct
+def now_rfc3339() -> str:
+    """Return the current UTC time in RFC 3339 format.
 
-    if dt.tzinfo is None:
-        # Assume UTC if no timezone info
-        return dt.isoformat() + "Z"
-    else:
-        # Use timezone-aware formatting
-        return dt.isoformat()
+    Uses timezone-aware UTC and emits the canonical 'Z' suffix.
+    """
+    return format_datetime_rfc3339(datetime.now(timezone.utc)).replace("+00:00", "Z")
 
 
 class ProofyDataEncoder(json.JSONEncoder):
@@ -164,7 +161,7 @@ class ProofyClient:
     def create_test_result(
         self,
         run_id: int,
-        display_name: str,
+        name: str,
         path: str,
         status: int | ResultStatus | None = None,
         started_at: str | datetime | None = None,
@@ -178,7 +175,7 @@ class ProofyClient:
             raise ValueError("Run id cannot be None.")
 
         data: dict[str, Any] = {
-            "name": display_name,
+            "name": name,
             "path": path,
             "attributes": attributes or {},
         }

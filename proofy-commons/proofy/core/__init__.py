@@ -1,6 +1,6 @@
 """Core components for Proofy integration."""
 
-from .client import ProofyClient, format_datetime_rfc3339
+from .client import ProofyClient
 from .models import (
     Attachment,
     FixtureResult,
@@ -18,5 +18,4 @@ __all__ = [
     "ResultStatus",
     "RunStatus",
     "ProofyAttributes",
-    "format_datetime_rfc3339",
 ]

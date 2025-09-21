@@ -7,6 +7,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar
 
+from proofy.utils import format_datetime_rfc3339
+
 
 class RunStatus(int, Enum):
     """Status of a test run."""
@@ -25,6 +27,15 @@ class ResultStatus(int, Enum):
     BROKEN = 3
     SKIPPED = 4
     IN_PROGRESS = 5
+
+
+class ReportingStatus(int, Enum):
+    """Status of a test reporting."""
+
+    NOT_STARTED = 0
+    INITIALIZED = 1
+    FINISHED = 2
+    FAILED = -1
 
 
 class ProofyAttributes(str, Enum):
@@ -59,27 +70,23 @@ class FixtureResult:
 
 @dataclass
 class TestResult:
-    """Unified test result model combining both projects' approaches."""
+    """Unified test result model."""
 
     __test__: ClassVar[bool] = False  # Prevent pytest from treating this as a test class
 
-    # Core identification (from current project)
-    id: str  # Local ID (nodeid)
-    name: str
-    path: str
+    id: str  # Local ID
+    name: str  # Display name
+    path: str  # Main proofy identifier
+    test_path: str  # Test file path
 
-    # Server integration (from old project)
-    run_id: int | None = None
-    server_id: int | None = None  # Server-generated ID for live mode
+    run_id: int | None = None  # Run ID
+    result_id: int | None = None  # Server-generated ID for live mode and attachments
 
-    # Test execution details
-    nodeid: str | None = None
-    outcome: str | None = None  # passed, failed, skipped, error (current project format)
-    status: ResultStatus | None = None  # Enum format (old project format)
+    outcome: str | None = None  # passed, failed, skipped, error
+    status: ResultStatus | None = None  # Enum format
 
-    # Timing information - normalized field names
-    started_at: datetime | None = None  # New API field name
-    ended_at: datetime | None = None  # New API field name
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
     duration_ms: float | None = None  # Milliseconds
 
     # Test context and metadata
@@ -87,28 +94,26 @@ class TestResult:
     markers: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
-    attributes: dict[str, Any] = field(default_factory=dict)  # Direct dict format for new API
+    attributes: dict[str, Any] = field(default_factory=dict)
 
     # Error information
-    message: str | None = None  # Error message for new API
-    traceback: str | None = None  # Error traceback
+    message: str | None = None
+    traceback: str | None = None
+    stdout: str | None = None
+    stderr: str | None = None
 
     # Related entities
     attachments: list[Attachment] = field(default_factory=list)
     fixtures: list[FixtureResult] = field(default_factory=list)
+
+    reporting_status: ReportingStatus = ReportingStatus.NOT_STARTED
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary with proper serialization."""
 
         def convert_value(val: Any) -> Any:
             if isinstance(val, datetime):
-                # RFC 3339 format: YYYY-MM-DDTHH:MM:SS.sssZ or YYYY-MM-DDTHH:MM:SS.sss+HH:MM
-                if val.tzinfo is None:
-                    # Assume UTC if no timezone info
-                    return val.isoformat() + "Z"
-                else:
-                    # Use timezone-aware formatting
-                    return val.isoformat()
+                format_datetime_rfc3339(val)
             elif isinstance(val, list):
                 return [convert_value(v) for v in val]
             elif isinstance(val, dict):
@@ -137,13 +142,13 @@ class TestResult:
         return None
 
     @property
-    def effective_duration_ms(self) -> float | None:
+    def effective_duration_ms(self) -> int | None:
         """Get effective duration in milliseconds."""
         if self.duration_ms is not None:
-            return self.duration_ms
+            return int(self.duration_ms)
         if self.started_at and self.ended_at:
             delta = self.ended_at - self.started_at
-            return delta.total_seconds() * 1000.0
+            return int(delta.total_seconds() * 1000.0)
         return None
 
     def merge_metadata(self) -> dict[str, Any]:
@@ -156,5 +161,8 @@ class TestResult:
         # Add attributes
         if self.attributes:
             merged.update(self.attributes)
+
+        if self.tags:
+            merged.update({"__proofy_tags": self.tags})
 
         return merged
