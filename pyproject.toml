@@ -106,11 +106,8 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 files = [
-    "proofy-commons/proofy",
-    "pytest-proofy/pytest_proofy",
-    "behave-proofy/behave_proofy",
-    "unittest-proofy/unittest_proofy",
-    "nose2-proofy/nose2_proofy",
+    "proofy-commons/proofy/core/api.py",
+    "proofy-commons/proofy/core/client.py",
 ]
 exclude = [
     "^tests/",

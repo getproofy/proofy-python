@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import os
-import shutil
+import tempfile
 import uuid
 from pathlib import Path
 from typing import IO
-import hashlib
-import tempfile
 
 
 def _parse_bool(value: str | bool | None) -> bool:
@@ -86,9 +85,7 @@ def cache_attachment(src_path: str | Path) -> tuple[Path, int, str]:
     return dest, total, sha256.hexdigest()
 
 
-def cache_attachment_from_bytes(
-    data: bytes, *, suffix: str | None = None
-) -> tuple[Path, int, str]:
+def cache_attachment_from_bytes(data: bytes, *, suffix: str | None = None) -> tuple[Path, int, str]:
     """Write bytes to a new cached file in one pass and return (path, size, sha256).
 
     The filename is randomized; optional suffix (e.g., ".png").

@@ -20,9 +20,9 @@ from ...core.models import (
     RunStatus,
     TestResult,
 )
-from ..export.attachments import is_cached_path
 from ...core.utils import now_rfc3339
 from ..context import get_context_service
+from ..export.attachments import is_cached_path
 
 logger = logging.getLogger("ProofyConductor")
 
@@ -85,9 +85,7 @@ class ResultsHandler:
                 )
                 run_id = response.get("id", None)
                 if not run_id:
-                    raise RuntimeError(
-                        f"'run_id' not found in response: {json.dumps(response)}"
-                    )
+                    raise RuntimeError(f"'run_id' not found in response: {json.dumps(response)}")
             except Exception as e:
                 logger.error(
                     f"Run {name!r} creation failed for project {self.project_id}: {e}",
@@ -95,7 +93,7 @@ class ResultsHandler:
                 )
                 raise RuntimeError(
                     f"Run {name!r} creation failed for project {self.project_id}: {e}"
-                )
+                ) from e
 
         return run_id
 
@@ -129,7 +127,7 @@ class ResultsHandler:
                 },
             )
         except Exception as e:
-            raise RuntimeError(f"Failed to finalize run: {e}")
+            raise RuntimeError(f"Failed to finalize run: {e}") from e
 
     def end_session(self) -> None:
         self.context.end_session()
@@ -184,7 +182,7 @@ class ResultsHandler:
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
             logger.error(f"Failed to send result for run {result.run_id}: {e}")
-            raise RuntimeError(f"Failed to send result for run {result.run_id}: {e}")
+            raise RuntimeError(f"Failed to send result for run {result.run_id}: {e}") from e
         else:
             result.reporting_status = ReportingStatus.FINISHED
             result.result_id = result_id
@@ -203,12 +201,10 @@ class ResultsHandler:
             )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
-            logger.error(
-                f"Failed to update result {result.result_id} for run {result.run_id}: {e}"
-            )
+            logger.error(f"Failed to update result {result.result_id} for run {result.run_id}: {e}")
             raise RuntimeError(
                 f"Failed to update result {result.result_id} for run {result.run_id}: {e}"
-            )
+            ) from e
         else:
             result.reporting_status = ReportingStatus.FINISHED
 
@@ -220,7 +216,7 @@ class ResultsHandler:
                 result.reporting_status = ReportingStatus.INITIALIZED
             except Exception as e:
                 logger.exception(f"Failed to send result in live mode: {e}")
-                raise RuntimeError(f"Failed to send result in live mode: {e}")
+                raise RuntimeError(f"Failed to send result in live mode: {e}") from e
             return None
 
         # Update at finish
@@ -235,7 +231,7 @@ class ResultsHandler:
             except Exception as e:
                 result.reporting_status = ReportingStatus.FAILED
                 logger.exception(f"Failed to send result in live mode: {e}")
-                raise RuntimeError(f"Failed to send result in live mode: {e}")
+                raise RuntimeError(f"Failed to send result in live mode: {e}") from e
             else:
                 result.reporting_status = ReportingStatus.FINISHED
             finally:
@@ -322,9 +318,7 @@ class ResultsHandler:
             effective_mime = mime_type or guessed or "application/octet-stream"
 
             if not result.run_id or not result.result_id:
-                raise RuntimeError(
-                    "Cannot upload attachment without run_id and result_id."
-                )
+                raise RuntimeError("Cannot upload attachment without run_id and result_id.")
 
             # Prefer fast path with known size/hash via high-level helper
             if size_bytes is not None and sha256 is not None:
@@ -364,12 +358,15 @@ class ResultsHandler:
                 success = False
                 if isinstance(resp, dict):
                     status_code = resp.get("status_code")
-                    if artifact_id:
-                        success = True
-                    elif isinstance(status_code, int) and status_code in (
-                        200,
-                        201,
-                        204,
+                    if (
+                        artifact_id
+                        or isinstance(status_code, int)
+                        and status_code
+                        in (
+                            200,
+                            201,
+                            204,
+                        )
                     ):
                         success = True
                 attach_path_str = path if isinstance(path, str) else str(path)
@@ -381,11 +378,7 @@ class ResultsHandler:
         except Exception as e:
             # Fall back to simple message; guard name access across dict
             try:
-                at_name = (
-                    attachment["name"]
-                    if isinstance(attachment, dict)
-                    else attachment.name
-                )
+                at_name = attachment["name"] if isinstance(attachment, dict) else attachment.name
             except Exception:
                 at_name = "<unknown>"
             print(f"Failed to upload attachment {at_name}: {e}")

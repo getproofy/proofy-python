@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-
 Mode = Literal["live", "batch", "lazy"]
 
 
@@ -53,5 +52,3 @@ __all__ = [
     "Mode",
     "ProofyConfig",
 ]
-
-

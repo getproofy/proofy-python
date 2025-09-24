@@ -12,9 +12,9 @@ from proofy.core.api import (
     get_current_test_id,
     set_description,
     set_name,
-    set_title,
     set_run_name,
     set_severity,
+    set_title,
 )
 
 # Decorators
@@ -23,8 +23,8 @@ from proofy.core.decorators import (
     description,
     name,
     severity,
-    title,
     tags,
+    title,
 )
 
 # Version info

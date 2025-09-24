@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import io
-import os
 from pathlib import Path
 
 import pytest
-
-from proofy.core.models import Attachment, TestResult
 from proofy._impl.context.backend import ThreadLocalBackend
 from proofy._impl.context.service import ContextService
 from proofy._impl.hooks.manager import get_plugin_manager, reset_plugin_manager
 from proofy._impl.hooks.specs import hookimpl
+from proofy.core.models import TestResult
 
 
 @pytest.fixture(autouse=True)
@@ -38,9 +36,7 @@ def test_session_and_test_lifecycle_and_hooks(monkeypatch):
 
     class Plugin:
         @hookimpl
-        def proofy_test_start(
-            self, test_id: str, test_name: str, test_path: str, metadata=None
-        ):  # noqa: ANN001
+        def proofy_test_start(self, test_id: str, test_name: str, test_path: str, metadata=None):  # noqa: ANN001
             calls.append(
                 (
                     "start",

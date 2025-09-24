@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import mimetypes
-import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -15,9 +14,8 @@ from typing import IO, Any, Literal, cast
 
 import requests
 
-from .utils import format_datetime_rfc3339
-
 from .models import ResultStatus, RunStatus
+from .utils import format_datetime_rfc3339
 
 
 class ArtifactType(IntEnum):
@@ -49,9 +47,7 @@ class ProofyClient:
         "User-Agent": "proofy-python-0.1.0/client",
     }
 
-    def __init__(
-        self, base_url: str, token: str | None = None, timeout_s: float = 10.0
-    ) -> None:
+    def __init__(self, base_url: str, token: str | None = None, timeout_s: float = 10.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
         self.session = requests.Session()
@@ -74,16 +70,12 @@ class ProofyClient:
             return value.value
         if isinstance(value, dict):
             return {k: ProofyClient._normalize(v) for k, v in value.items()}
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             return [ProofyClient._normalize(v) for v in value]
         return value
 
     def _url(self, path: str) -> str:
-        return (
-            f"{self.base_url}{path}"
-            if path.startswith("/")
-            else f"{self.base_url}/{path}"
-        )
+        return f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
 
     def _request(
         self,
@@ -126,7 +118,7 @@ class ProofyClient:
             key_str = str(key)
             if isinstance(value, str):
                 result[key_str] = value
-            elif isinstance(value, (dict, list, tuple, set)):
+            elif isinstance(value, dict | list | tuple | set):
                 result[key_str] = json.dumps(value, default=str)
             else:
                 result[key_str] = str(value)
@@ -159,9 +151,7 @@ class ProofyClient:
         if attributes:
             data["attributes"] = self._stringify_attributes(attributes)
 
-        return cast(
-            dict[str, Any], self._request("POST", "/v1/runs", json_body=data).json()
-        )
+        return cast(dict[str, Any], self._request("POST", "/v1/runs", json_body=data).json())
 
     def update_run(
         self,
@@ -231,9 +221,7 @@ class ProofyClient:
 
         return cast(
             dict[str, Any],
-            self._request(
-                "POST", f"/v1/runs/{int(run_id)}/results", json_body=data
-            ).json(),
+            self._request("POST", f"/v1/runs/{int(run_id)}/results", json_body=data).json(),
         )
 
     def update_result(
@@ -338,7 +326,7 @@ class ProofyClient:
         """
         # Determine filename
         inferred_filename: str | None = None
-        if isinstance(file, (str, Path)):
+        if isinstance(file, str | Path):
             inferred_filename = Path(file).name
         final_filename = filename or inferred_filename
         if not final_filename:
@@ -350,7 +338,7 @@ class ProofyClient:
         )
 
         # Compute size and sha256
-        if isinstance(file, (str, Path)):
+        if isinstance(file, str | Path):
             path = Path(file)
             if not path.exists():
                 raise FileNotFoundError(f"File not found: {path}")
@@ -361,14 +349,14 @@ class ProofyClient:
                     sha256.update(chunk)
             digest = sha256.hexdigest()
             source_for_upload: Any = path
-        elif isinstance(file, (bytes, bytearray, memoryview)):
+        elif isinstance(file, bytes | bytearray | memoryview):
             buf = bytes(file)
             size_bytes = len(buf)
             digest = hashlib.sha256(buf).hexdigest()
             source_for_upload = buf
         else:
             # file-like stream
-            stream = cast(IO[bytes], file)
+            stream: IO[bytes] = file
             # If seekable, preserve position
             pos = None
             try:
@@ -455,10 +443,10 @@ class ProofyClient:
             raise ValueError("Invalid presign response: missing PUT upload URL.")
 
         # Upload based on the type of `file`
-        if isinstance(file, (bytes, bytearray, memoryview)):
+        if isinstance(file, bytes | bytearray | memoryview):
             put_resp = requests.put(url, data=file, headers=dict(headers))
             put_resp.raise_for_status()
-        elif isinstance(file, (str, Path)):
+        elif isinstance(file, str | Path):
             with open(Path(file), "rb") as f:
                 put_resp = requests.put(url, data=f, headers=dict(headers))
                 put_resp.raise_for_status()
@@ -468,9 +456,7 @@ class ProofyClient:
             put_resp.raise_for_status()
 
         artifact_id = cast(int, presign.get("artifact_id"))
-        status_code, finalize_json = self.finalize_artifact(
-            run_id, result_id, artifact_id
-        )
+        status_code, finalize_json = self.finalize_artifact(run_id, result_id, artifact_id)
         return {
             "artifact_id": artifact_id,
             "status_code": status_code,

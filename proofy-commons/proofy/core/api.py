@@ -8,7 +8,6 @@ from typing import Any
 from .._impl.context import get_context_service
 from .._impl.context.models import SessionContext
 
-
 _context_service = get_context_service()
 
 

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import hashlib
-import io
 from datetime import datetime, timezone
 
 import pytest
-
 from proofy.core.client import ArtifactType, ProofyClient
 from proofy.core.models import ResultStatus, RunStatus
 
@@ -64,9 +62,7 @@ def test_stringify_attributes_and_datetime_normalization(monkeypatch):
         "nested": {"a": 1, "b": [1, 2, 3]},
     }
 
-    resp = client.create_run(
-        project_id=7, name="run-1", started_at=started, attributes=attrs
-    )
+    resp = client.create_run(project_id=7, name="run-1", started_at=started, attributes=attrs)
     assert isinstance(resp, dict)
 
     # started_at normalized to RFC3339 string
@@ -174,9 +170,7 @@ def test_upload_artifact_file_happy_path_with_bytes(monkeypatch):
 
     captured = {"presign": None, "put": None, "finalize": None}
 
-    def fake_presign(
-        run_id, result_id, filename, mime_type, size_bytes, hash_sha256, type
-    ):  # noqa: ARG001
+    def fake_presign(run_id, result_id, filename, mime_type, size_bytes, hash_sha256, type):  # noqa: ARG001
         captured["presign"] = {
             "run_id": run_id,
             "result_id": result_id,
@@ -237,9 +231,7 @@ def test_upload_artifact_path_auto_calculates_and_calls_presign(tmp_path, monkey
 
     called = {"args": None, "put": None}
 
-    def fake_presign(
-        run_id, result_id, filename, mime_type, size_bytes, hash_sha256, type
-    ):  # noqa: ARG001
+    def fake_presign(run_id, result_id, filename, mime_type, size_bytes, hash_sha256, type):  # noqa: ARG001
         called["args"] = (
             run_id,
             result_id,
@@ -256,9 +248,7 @@ def test_upload_artifact_path_auto_calculates_and_calls_presign(tmp_path, monkey
 
     def fake_put(url, data=None, headers=None):
         # Ensure the file handle content matches
-        assert (
-            data.read() == data.seek(0) or True
-        )  # tolerate streams being read elsewhere
+        assert data.read() == data.seek(0) or True  # tolerate streams being read elsewhere
         called["put"] = (url, headers)
         return FakeResponse(status_code=200)
 

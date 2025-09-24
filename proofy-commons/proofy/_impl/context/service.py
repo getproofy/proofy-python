@@ -6,7 +6,6 @@ import os
 import uuid
 from pathlib import Path
 from typing import IO, Any
-import tempfile
 
 from ...core.models import Attachment, TestResult
 from ..export.attachments import (
@@ -45,9 +44,7 @@ class ContextService:
     def start_session(
         self, run_id: int | None = None, config: dict[str, Any] | None = None
     ) -> SessionContext:
-        session = SessionContext(
-            session_id=str(uuid.uuid4()), run_id=run_id, config=config
-        )
+        session = SessionContext(session_id=str(uuid.uuid4()), run_id=run_id, config=config)
         self.backend.set_session(session)
         return session
 
@@ -105,9 +102,8 @@ class ContextService:
             ctx.attributes["__proofy_severity"] = severity
 
     def add_tag(self, tag: str) -> None:
-        if ctx := self.test_ctx:
-            if tag not in ctx.tags:
-                ctx.tags.append(tag)
+        if (ctx := self.test_ctx) and tag not in ctx.tags:
+            ctx.tags.append(tag)
 
     def add_tags(self, tags: list[str]) -> None:
         if ctx := self.test_ctx:
@@ -137,18 +133,13 @@ class ContextService:
         cached_size: int | None = None
         cached_sha: str | None = None
 
-        if isinstance(file, (str, Path)):
+        if isinstance(file, str | Path):
             # Path-like: prefer zero-copy; in live mode consider immediate upload
             original_path = Path(file)
             original_path_string = str(file) if isinstance(file, Path) else file
             path_to_store = original_path
             # In live, if we already have run_id/result_id, we could upload immediately (optional)
-            if (
-                do_immediate
-                and self.test_ctx
-                and self.test_ctx.run_id
-                and self.test_ctx.result_id
-            ):
+            if do_immediate and self.test_ctx and self.test_ctx.run_id and self.test_ctx.result_id:
                 try:
                     # Best effort mime guess if missing
                     eff_mime = mime_type
@@ -160,14 +151,9 @@ class ContextService:
                     # Placeholder for potential immediate upload integration at this layer
                 except Exception:
                     pass
-        elif isinstance(file, (bytes, bytearray)):
+        elif isinstance(file, bytes | bytearray):
             # Bytes: in lazy/batch write directly to cache; in live immediate upload is optional
-            if (
-                do_immediate
-                and self.test_ctx
-                and self.test_ctx.run_id
-                and self.test_ctx.result_id
-            ):
+            if do_immediate and self.test_ctx and self.test_ctx.run_id and self.test_ctx.result_id:
                 # Avoid writing to disk; upload can occur immediately at test finish
                 # Still record a cache path to keep a consistent structure
                 suffix = f".{extension}" if extension else None
@@ -192,7 +178,7 @@ class ContextService:
             # For path inputs, copy to cache if required and not already cached
             if (
                 should_cache_for_mode(mode)
-                and isinstance(file, (str, Path))
+                and isinstance(file, str | Path)
                 and not is_cached_path(path_to_store)
             ):
                 path_to_store, cached_size, cached_sha = cache_attachment(path_to_store)

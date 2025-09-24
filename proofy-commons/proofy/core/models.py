@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
-import json
 from typing import Any, ClassVar
 
 from .utils import format_datetime_rfc3339
@@ -67,9 +67,7 @@ class FixtureResult:
 class TestResult:
     """Unified test result model."""
 
-    __test__: ClassVar[bool] = (
-        False  # Prevent pytest from treating this as a test class
-    )
+    __test__: ClassVar[bool] = False  # Prevent pytest from treating this as a test class
 
     id: str  # Local ID
     name: str  # Display name
@@ -122,21 +120,6 @@ class TestResult:
             return val
 
         return {key: convert_value(value) for key, value in asdict(self).items()}
-
-    @property
-    def effective_outcome(self) -> str | None:
-        """Get effective outcome, prioritizing outcome over status."""
-        if self.outcome:
-            return self.outcome
-        if self.status:
-            return {
-                ResultStatus.PASSED: "passed",
-                ResultStatus.FAILED: "failed",
-                ResultStatus.BROKEN: "error",
-                ResultStatus.SKIPPED: "skipped",
-                ResultStatus.IN_PROGRESS: "running",
-            }.get(self.status)
-        return None
 
     @property
     def effective_duration_ms(self) -> int | None:

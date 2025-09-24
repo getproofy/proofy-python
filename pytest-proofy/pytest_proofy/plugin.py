@@ -10,16 +10,14 @@ from typing import Any
 
 import pytest
 from _pytest.reports import TestReport
+from proofy._impl.config import ProofyConfig
+from proofy._impl.hooks import get_plugin_manager, hookimpl
+from proofy._impl.hooks.manager import reset_plugin_manager
+from proofy._impl.io.results_handler import ResultsHandler
 
 # Import from proofy-commons
 from proofy.core import ProofyClient
 from proofy.core.models import ResultStatus, TestResult
-from proofy._impl.hooks import get_plugin_manager, hookimpl
-
-from proofy._impl.io.results_handler import ResultsHandler
-from proofy._impl.hooks.manager import reset_plugin_manager
-from proofy._impl.config import ProofyConfig
-
 from pytest import CallInfo
 
 from .config import (
@@ -82,9 +80,7 @@ class ProofyPytestPlugin:
     def _get_test_path(self, item: pytest.Item) -> Path:
         """Get relative path for test."""
         try:
-            root = getattr(item.config, "rootpath", None) or getattr(
-                item.config, "rootdir", None
-            )
+            root = getattr(item.config, "rootpath", None) or getattr(item.config, "rootdir", None)
             if root:
                 return Path(item.fspath).relative_to(Path(root))
         except Exception:
@@ -105,11 +101,7 @@ class ProofyPytestPlugin:
         attributes = {}
         for mark in item.iter_markers(name="proofy_attributes"):
             attributes.update(
-                {
-                    key: value
-                    for key, value in mark.kwargs.items()
-                    if key not in attributes
-                }
+                {key: value for key, value in mark.kwargs.items() if key not in attributes}
             )
         return attributes
 
@@ -139,10 +131,7 @@ class ProofyPytestPlugin:
         attributes = self._get_attributes(item)
         tags = attributes.pop("tags", [])
 
-        if hasattr(item, "callspec"):
-            parameters = item.callspec.params
-        else:
-            parameters = {}
+        parameters = item.callspec.params if hasattr(item, "callspec") else {}
 
         result = TestResult(
             id=self._get_test_id(item),
@@ -168,9 +157,7 @@ class ProofyPytestPlugin:
         report: TestReport = outcome.get_result()  # type: ignore[attr-defined]
 
         status = self._outcome_to_status(report.outcome)
-        result: TestResult | None = self.results_handler.get_result(
-            self._get_test_id(item)
-        )
+        result: TestResult | None = self.results_handler.get_result(self._get_test_id(item))
 
         # Create result if not exists yet
         if not result:
@@ -178,10 +165,7 @@ class ProofyPytestPlugin:
                 attributes = self._get_attributes(item)
                 tags = attributes.pop("tags", [])
 
-                if hasattr(item, "callspec"):
-                    parameters = item.callspec.params
-                else:
-                    parameters = {}
+                parameters = item.callspec.params if hasattr(item, "callspec") else {}
 
                 result = TestResult(
                     id=self._get_test_id(item),
@@ -214,16 +198,13 @@ class ProofyPytestPlugin:
         if report.when == "setup":
             result.status = status
 
-        if report.when == "call":
-            if result.status == ResultStatus.PASSED:
-                result.status = status
+        if report.when == "call" and result.status == ResultStatus.PASSED:
+            result.status = status
 
         if report.when == "teardown":
             end_time = datetime.now(timezone.utc)
             result.ended_at = end_time
-            result.duration_ms = int(
-                (end_time - result.started_at).total_seconds() * 1000
-            )
+            result.duration_ms = int((end_time - result.started_at).total_seconds() * 1000)
             if (
                 status in (ResultStatus.FAILED, ResultStatus.BROKEN)
                 and result.status == ResultStatus.PASSED

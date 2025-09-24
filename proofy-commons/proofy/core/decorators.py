@@ -9,14 +9,14 @@ from proofy._impl.hooks.manager import get_plugin_manager
 _plugin_manager = get_plugin_manager()
 
 
-def _dummy(result) -> Any:
+def _dummy(result: Any) -> Any:
     if result:
         return result[0]
     else:
         return lambda function: function
 
 
-def attributes(**attributes: dict[str, Any]) -> Any:
+def attributes(**attributes: Any) -> Any:
     # Delegate to framework-specific marker creation
     return _dummy(_plugin_manager.hook.proofy_mark_attributes(attributes=attributes))
 

@@ -3,12 +3,10 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-import pytest
-
 import proofy as api
+import pytest
 from proofy._impl.context.backend import ThreadLocalBackend
 from proofy._impl.context.service import ContextService
-from proofy._impl.context.models import SessionContext
 from proofy.core.models import TestResult
 
 
