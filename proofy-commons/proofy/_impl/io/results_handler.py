@@ -164,7 +164,7 @@ class ResultsHandler:
 
     def send_test_result(self, result: TestResult) -> int:
         try:
-            result_id = self.client.create_result(
+            response = self.client.create_result(
                 result.run_id,
                 name=result.name,
                 path=result.path,
@@ -175,6 +175,12 @@ class ResultsHandler:
                 message=result.message,
                 attributes=result.merge_metadata(),
             )
+            # Extract the ID from the response dictionary
+            result_id = response.get("id")
+            if not isinstance(result_id, int):
+                raise ValueError(
+                    f"Expected integer ID in response, got {type(result_id)}: {result_id}"
+                )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
             logger.error(f"Failed to send result for run {result.run_id}: {e}")

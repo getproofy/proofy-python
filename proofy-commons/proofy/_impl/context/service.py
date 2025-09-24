@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
+import tempfile
 
 from ...core.models import TestResult
 from ..export.attachments import cache_attachment, should_cache_for_mode
@@ -103,7 +104,7 @@ class ContextService:
     # Attachments
     def attach(
         self,
-        file: str | Path,
+        file: str | Path | bytes | bytearray | IO[bytes],
         *,
         name: str,
         mime_type: str | None = None,
@@ -112,9 +113,28 @@ class ContextService:
         ctx = self.test_ctx
         if not ctx:
             return
-        original_path = Path(file)
-        original_path_string = str(file) if isinstance(file, Path) else file
-        path_to_store = original_path
+        # Normalize input: accept path-like or in-memory content
+        if isinstance(file, (str, Path)):
+            original_path = Path(file)
+            original_path_string = str(file) if isinstance(file, Path) else file
+            path_to_store = original_path
+        else:
+            # Create a temporary file to hold in-memory content
+            suffix = f".{extension}" if extension else ""
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                if isinstance(file, (bytes, bytearray)):
+                    tmp.write(bytes(file))
+                else:
+                    # file-like IO[bytes]
+                    chunk = file.read(1024 * 1024)
+                    while chunk:
+                        tmp.write(chunk)
+                        chunk = file.read(1024 * 1024)
+                tmp.flush()
+                tmp_path = Path(tmp.name)
+            original_path = tmp_path
+            original_path_string = "<in-memory>"
+            path_to_store = original_path
         try:
             mode = os.getenv("PROOFY_MODE")
             if should_cache_for_mode(mode):
