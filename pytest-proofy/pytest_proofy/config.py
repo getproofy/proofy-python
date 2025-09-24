@@ -27,7 +27,7 @@ def register_options(parser: pytest.Parser) -> None:
         "--proofy-api-base",
         action="store",
         default=None,
-        help="Proofy API base URL (e.g., https://api.proofy.io)",
+        help="Proofy API base URL (e.g., https://api.proofy.dev)",
     )
     group.addoption(
         "--proofy-token",
@@ -172,20 +172,6 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
             "proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int
         ),
         run_name=get_option("proofy_run_name", "PROOFY_RUN_NAME", "proofy_run_name"),
-        enable_attachments=not get_option(
-            "proofy_disable_attachments",
-            "PROOFY_DISABLE_ATTACHMENTS",
-            "proofy_disable_attachments",
-            False,
-            bool,
-        ),
-        enable_hooks=not get_option(
-            "proofy_disable_hooks",
-            "PROOFY_DISABLE_HOOKS",
-            "proofy_disable_hooks",
-            False,
-            bool,
-        ),
     )
 
 

@@ -2,17 +2,13 @@
 # Copy this file to .env and update with your actual values
 
 # API Configuration
-PROOFY_API_BASE=https://api.proofy.io
+PROOFY_API_BASE=https://api.proofy.dev
 PROOFY_TOKEN=your_api_token_here
 PROOFY_PROJECT_ID=123
 
 # Plugin Behavior
 PROOFY_MODE=batch
 PROOFY_BATCH_SIZE=50
-
-# Features
-PROOFY_ENABLE_ATTACHMENTS=true
-PROOFY_ENABLE_HOOKS=true
 
 # Local Backup
 PROOFY_ALWAYS_BACKUP=true

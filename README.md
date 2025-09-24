@@ -1,6 +1,6 @@
-# Proofy Python Unified
+# Proofy Python
 
-A unified framework for integrating Proofy test reporting with multiple Python testing frameworks.
+A framework for integrating Proofy test reporting with multiple Python testing frameworks.
 
 ## Supported Frameworks
 
@@ -13,18 +13,19 @@ A unified framework for integrating Proofy test reporting with multiple Python t
 
 ```
 proofy-python-unified/
-├── proofy-commons/          # Shared components
+├── proofy-commons/             # Shared components
 │   ├── proofy/
-│   │   ├── core/           # Client, models, processing
-│   │   ├── hooks/          # Plugin system (pluggy)
-│   │   ├── runtime/        # Context, decorators, API
-│   │   ├── config/         # Configuration management
-│   │   └── export/         # JSON/ZIP export utilities
+│   │   ├── core/               # Public API facade, client, models, decorators
+│   │   └── _impl/
+│   │       ├── context/        # Context service and models
+│   │       ├── io/             # Results handling and local exports
+│   │       ├── export/         # Attachment packaging (e.g., ZIP)
+│   │       └── hooks/          # Hook specs and manager
 │   └── tests/
-├── pytest-proofy/          # Pytest adapter
-├── behave-proofy/           # Behave adapter
-├── unittest-proofy/         # Unittest adapter
-└── nose2-proofy/            # Nose2 adapter
+├── pytest-proofy/              # Pytest adapter
+├── behave-proofy/              # Behave adapter
+├── unittest-proofy/            # Unittest adapter
+└── nose2-proofy/               # Nose2 adapter
 ```
 
 ## Key Features
@@ -54,13 +55,13 @@ proofy-python-unified/
 
 ```bash
 # Install with specific framework support
-pip install proofy-python-unified[pytest]
-pip install proofy-python-unified[behave]
-pip install proofy-python-unified[unittest]
-pip install proofy-python-unified[nose2]
+pip install proofy-python[pytest]
+pip install proofy-python[behave]
+pip install proofy-python[unittest]
+pip install proofy-python[nose2]
 
 # Install with all frameworks
-pip install proofy-python-unified[all]
+pip install proofy-python[all]
 ```
 
 ### Basic Usage
@@ -68,13 +69,13 @@ pip install proofy-python-unified[all]
 #### Pytest
 
 ```bash
-pytest --proofy-url https://api.proofy.io --proofy-token YOUR_TOKEN --proofy-mode live
+pytest --proofy-api-base https://api.proofy.dev --proofy-token YOUR_TOKEN --proofy-mode live
 ```
 
 #### Behave
 
 ```bash
-behave -D proofy.url=https://api.proofy.io -D proofy.token=YOUR_TOKEN
+behave -D proofy.url=https://api.proofy.dev -D proofy.token=YOUR_TOKEN
 ```
 
 ### Configuration
@@ -84,17 +85,16 @@ Configuration follows hierarchy: **CLI > ENV > config_file > defaults**
 ```ini
 # pytest.ini / behave.ini / nose2.cfg
 [proofy]
-url = https://api.proofy.io
-token = your_token_here
-mode = lazy
-batch_size = 10
-enable_attachments = true
+proofy_api_base = https://api.proofy.dev
+proofy_token = your_token_here
+proofy_mode = lazy
+proofy_batch_size = 10
 ```
 
 ### Runtime API
 
 ```python
-from proofy.runtime import add_attachment, set_description, add_attributes
+from proofy import add_attachment, set_description, add_attributes
 
 def test_example():
     set_description("This is a comprehensive test")
@@ -146,14 +146,14 @@ pip install -e ./proofy-commons -e ./pytest-proofy -e .[dev]
 
 ```bash
 # Run all tests
-pytest
+uv run -q pytest
 
 # Run specific component tests
-pytest proofy-commons/tests
-pytest pytest-proofy/tests
+uv run -q pytest proofy-commons/tests
+uv run -q pytest pytest-proofy/tests
 
 # Run with coverage
-pytest --cov=proofy --cov-report=html
+uv run -q pytest --cov=proofy --cov-report=html
 ```
 
 ### Code Quality
@@ -205,10 +205,3 @@ pre-commit run --all-files
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
-## Documentation
-
-- [Implementation Plan](IMPLEMENTATION_PLAN.md) - Detailed development roadmap
-- [Framework Analysis](FRAMEWORK_ANALYSIS.md) - Technical analysis and decisions
-- [API Reference](docs/api.md) - Complete API documentation
-- [Examples](examples/) - Usage examples for each framework

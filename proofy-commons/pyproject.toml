@@ -9,7 +9,8 @@ description = "Shared components for Proofy Python testing framework integration
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    { name = "Proofy Team", email = "team@proofy.io" },
+    { name = "Proofy Team", email = "team@proofy.dev" },
+    { name = "Krzysztof Marmol", email = "krzysztof.marmol@gmail.com" },
 ]
 license = { text = "MIT" }
 keywords = ["testing", "proofy", "commons", "shared"]

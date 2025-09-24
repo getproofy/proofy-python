@@ -28,14 +28,26 @@ def set_name(name: str) -> None:
     _context_service.set_name(name)
 
 
+def set_title(title: str) -> None:
+    # Convenience alias matching decorator naming
+    _context_service.set_name(title)
+
+
 def add_attachment(
     file: str | Path,
     *,
     name: str,
     mime_type: str | None = None,
     extension: str | None = None,
+    try_immediate: bool | None = None,
 ) -> None:
-    _context_service.attach(file, name=name, mime_type=mime_type, extension=extension)
+    _context_service.attach(
+        file,
+        name=name,
+        mime_type=mime_type,
+        extension=extension,
+        try_immediate=try_immediate,
+    )
 
 
 def set_description(description: str) -> None:
@@ -48,7 +60,7 @@ def set_severity(severity: str) -> None:
 
 def get_current_test_id() -> str | None:
     ctx = _context_service.current_test()
-    return ctx.test_id if ctx else None
+    return ctx.id if ctx else None
 
 
 # --- Run management ---
@@ -77,6 +89,7 @@ __all__ = [
     "get_current_test_id",
     "set_description",
     "set_name",
+    "set_title",
     "set_run_name",
     "set_severity",
 ]

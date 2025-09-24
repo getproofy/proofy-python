@@ -46,9 +46,11 @@ class Attachment:
     name: str
     path: str
     mime_type: str | None = None
+    extension: str | None = None
     size_bytes: int | None = None
     remote_id: str | None = None  # Server-assigned ID for uploaded attachments
-    file_id: str | None = None  # Legacy compatibility with old project
+    original_path: str | None = None
+    sha256: str | None = None
 
 
 @dataclass

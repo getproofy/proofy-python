@@ -12,6 +12,7 @@ from proofy.core.api import (
     get_current_test_id,
     set_description,
     set_name,
+    set_title,
     set_run_name,
     set_severity,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "get_current_test_id",
     "set_description",
     "set_name",
+    "set_title",
     "set_run_name",
     "set_severity",
     # Decorators

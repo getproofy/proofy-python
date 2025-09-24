@@ -9,7 +9,8 @@ description = "Pytest plugin for Proofy test reporting"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    { name = "Proofy Team", email = "team@proofy.io" },
+    { name = "Proofy Team", email = "team@proofy.dev" },
+    { name = "Krzysztof Marmol", email = "krzysztof.marmol@gmail.com" },
 ]
 license = { text = "MIT" }
 keywords = ["pytest", "testing", "proofy", "reporting"]

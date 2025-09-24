@@ -20,7 +20,7 @@ from ...core.models import (
     RunStatus,
     TestResult,
 )
-from ..export.attachments import create_artifacts_zip
+from ..export.attachments import is_cached_path
 from ...core.utils import now_rfc3339
 from ..context import get_context_service
 
@@ -305,6 +305,8 @@ class ResultsHandler:
                 name = attachment.get("name") or attachment.get("filename")
                 path = attachment.get("path")
                 mime_type = attachment.get("mime_type")
+                size_bytes = attachment.get("size_bytes")
+                sha256 = attachment.get("_sha256") or attachment.get("sha256")
                 if not name or not path:
                     raise ValueError("Attachment dict requires 'name' and 'path'.")
             else:
@@ -313,6 +315,8 @@ class ResultsHandler:
                 name = attachment.name
                 path = attachment.path
                 mime_type = attachment.mime_type
+                size_bytes = attachment.size_bytes
+                sha256 = attachment.sha256
 
             guessed, _ = mimetypes.guess_type(path)
             effective_mime = mime_type or guessed or "application/octet-stream"
@@ -322,14 +326,29 @@ class ResultsHandler:
                     "Cannot upload attachment without run_id and result_id."
                 )
 
-            resp = self.client.upload_artifact(  # type: ignore[union-attr]
-                run_id=result.run_id,
-                result_id=result.result_id,
-                filename=name,
-                mime_type=effective_mime,
-                file=path,
-                type=ArtifactType.ATTACHMENT,
-            )
+            # Prefer fast path with known size/hash via high-level helper
+            if size_bytes is not None and sha256 is not None:
+                # Use direct file upload helper that accepts precomputed values
+                resp = self.client.upload_artifact_file(  # type: ignore[union-attr]
+                    run_id=result.run_id,
+                    result_id=result.result_id,
+                    file=path,
+                    filename=name,
+                    mime_type=effective_mime,
+                    size_bytes=int(size_bytes),
+                    hash_sha256=str(sha256),
+                    type=ArtifactType.ATTACHMENT,
+                )
+            else:
+                # Let client compute size/hash as needed
+                resp = self.client.upload_artifact(  # type: ignore[union-attr]
+                    run_id=result.run_id,
+                    result_id=result.result_id,
+                    filename=name,
+                    mime_type=effective_mime,
+                    file=path,
+                    type=ArtifactType.ATTACHMENT,
+                )
 
             # Optionally record remote id when available
             artifact_id = (resp or {}).get("artifact_id")
@@ -339,6 +358,25 @@ class ResultsHandler:
                 and hasattr(attachment, "remote_id")
             ):
                 attachment.remote_id = str(artifact_id)
+
+            # If upload finalized successfully, remove cached file to free space
+            try:
+                success = False
+                if isinstance(resp, dict):
+                    status_code = resp.get("status_code")
+                    if artifact_id:
+                        success = True
+                    elif isinstance(status_code, int) and status_code in (
+                        200,
+                        201,
+                        204,
+                    ):
+                        success = True
+                attach_path_str = path if isinstance(path, str) else str(path)
+                if success and is_cached_path(attach_path_str):
+                    Path(attach_path_str).unlink(missing_ok=True)
+            except Exception as del_err:
+                logger.warning(f"Failed to delete cached attachment {path}: {del_err}")
 
         except Exception as e:
             # Fall back to simple message; guard name access across dict

@@ -17,7 +17,6 @@ from proofy.core.models import ResultStatus, TestResult
 from proofy._impl.hooks import get_plugin_manager, hookimpl
 
 from proofy._impl.io.results_handler import ResultsHandler
-from proofy._impl.export.attachments import clear_attachments_cache
 from proofy._impl.hooks.manager import reset_plugin_manager
 from proofy._impl.config import ProofyConfig
 
@@ -117,8 +116,6 @@ class ProofyPytestPlugin:
     @pytest.hookimpl(tryfirst=True)
     def pytest_sessionstart(self, session: pytest.Session) -> None:
         """Called at the start of test session."""
-        # Clear attachments cache before starting tests (only on master, not workers)
-        clear_attachments_cache()
 
         self.run_id = self.results_handler.start_run(
             framework="pytest",

@@ -4,6 +4,9 @@ import os
 import shutil
 import uuid
 from pathlib import Path
+from typing import IO
+import hashlib
+import tempfile
 
 
 def _parse_bool(value: str | bool | None) -> bool:
@@ -23,15 +26,19 @@ def is_cache_enabled() -> bool:
 
 
 def get_output_dir() -> Path:
-    """Return the base output directory for artifacts."""
+    """Return the base output directory for artifacts (non-cache outputs)."""
     raw = os.getenv("PROOFY_OUTPUT_DIR", "proofy-artifacts")
     return Path(raw)
 
 
 def ensure_cache_dir() -> Path:
-    """Ensure and return the cache directory path for attachments."""
-    base = get_output_dir()
-    cache_dir = base / ".attachments_cache"
+    """Ensure and return the GLOBAL temp cache directory for attachments.
+
+    Uses the system temp directory by default. Override root via PROOFY_TEMP_DIR.
+    The directory structure is <temp_root>/proofy/attachments_cache to avoid collisions.
+    """
+    temp_root = Path(os.getenv("PROOFY_TEMP_DIR", tempfile.gettempdir()))
+    cache_dir = temp_root / "proofy" / "attachments_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 
@@ -47,14 +54,18 @@ def should_cache_for_mode(mode: str | None) -> bool:
 
 def is_cached_path(path: str | Path) -> bool:
     p = Path(path)
-    return ".attachments_cache" in p.parts
+    try:
+        return p.resolve().is_relative_to(ensure_cache_dir().resolve())
+    except Exception:
+        # Fallback for older Python or resolution issues
+        return str(ensure_cache_dir().resolve()) in str(p.resolve())
 
 
-def cache_attachment(src_path: str | Path) -> Path:
-    """Copy the attachment file to the cache directory and return the new path.
+def cache_attachment(src_path: str | Path) -> tuple[Path, int, str]:
+    """Copy a file to the cache directory and return (new_path, size, sha256).
 
-    The destination filename is randomized to avoid collisions while preserving
-    the original file extension.
+    Performs a single-pass copy while computing size and SHA-256.
+    The destination filename is randomized and preserves the original extension.
     """
     source = Path(src_path)
     print(f"Caching attachment from {source} to {ensure_cache_dir()}")
@@ -62,80 +73,52 @@ def cache_attachment(src_path: str | Path) -> Path:
     extension = source.suffix
     dest_name = f"{uuid.uuid4().hex}{extension}"
     dest = cache_dir / dest_name
-    shutil.copy2(source, dest)
-    return dest
+    sha256 = hashlib.sha256()
+    total = 0
+    with open(source, "rb") as rf, open(dest, "wb") as wf:
+        while True:
+            chunk = rf.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            sha256.update(chunk)
+            wf.write(chunk)
+    return dest, total, sha256.hexdigest()
 
 
-def clear_attachments_cache(output_dir: str | Path | None = None) -> None:
-    """Clear all cached attachments from .attachments_cache directory.
+def cache_attachment_from_bytes(
+    data: bytes, *, suffix: str | None = None
+) -> tuple[Path, int, str]:
+    """Write bytes to a new cached file in one pass and return (path, size, sha256).
 
-    Args:
-        output_dir: Directory containing the cache. If None, uses default output directory.
+    The filename is randomized; optional suffix (e.g., ".png").
     """
-    try:
-        import shutil
-        from pathlib import Path
-
-        output_path = get_output_dir() if output_dir is None else Path(output_dir)
-        cache_dir = output_path / ".attachments_cache"
-
-        if cache_dir.exists() and cache_dir.is_dir():
-            # Count files before clearing
-            cached_files = list(cache_dir.glob("*"))
-            file_count = len([f for f in cached_files if f.is_file()])
-
-            if file_count > 0:
-                # Remove all files in cache directory
-                for item in cached_files:
-                    if item.is_file():
-                        item.unlink()
-                    elif item.is_dir():
-                        shutil.rmtree(item)
-
-                print(f"Cleared {file_count} cached attachments from {cache_dir}")
-            else:
-                print(f"Cache directory {cache_dir} is already empty")
-
-    except Exception as e:
-        print(f"Failed to clear attachments cache: {e}")
+    cache_dir = ensure_cache_dir()
+    dest_name = f"{uuid.uuid4().hex}{suffix or ''}"
+    dest = cache_dir / dest_name
+    sha256 = hashlib.sha256()
+    sha256.update(data)
+    size_bytes = len(data)
+    with open(dest, "wb") as f:
+        f.write(data)
+    return dest, size_bytes, sha256.hexdigest()
 
 
-def create_artifacts_zip(output_dir: str | Path) -> None:
-    """Create a zip archive containing only cached attachments from .attachments_cache.
-
-    The .attachments_cache folder is renamed to 'attachments' in the zip.
-
-    Args:
-        output_dir: Directory containing artifacts to zip
-    """
-    try:
-        import zipfile
-        from pathlib import Path
-
-        output_path = Path(output_dir)
-        zip_path = output_path / "artifacts.zip"
-        cache_dir = output_path / ".attachments_cache"
-
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            # Only add files from .attachments_cache directory
-            if cache_dir.exists() and cache_dir.is_dir():
-                for item in cache_dir.rglob("*"):
-                    if item.is_file():
-                        # Get relative path from cache_dir and rename folder
-                        relative_path = item.relative_to(cache_dir)
-                        # Change .attachments_cache to attachments in the zip
-                        arcname = Path("attachments") / relative_path
-                        zipf.write(item, arcname)
-
-        # Check if zip has any contents
-        with zipfile.ZipFile(zip_path, "r") as zipf:
-            file_count = len(zipf.namelist())
-
-        if file_count > 0:
-            print(f"Artifacts archived to {zip_path} ({file_count} files)")
-        else:
-            print("No artifacts to archive, removing empty zip")
-            zip_path.unlink()
-
-    except Exception as e:
-        print(f"Failed to create artifacts zip: {e}")
+def cache_attachment_from_stream(
+    stream: IO[bytes], *, suffix: str | None = None
+) -> tuple[Path, int, str]:
+    """Stream to a new cached file in one pass and return (path, size, sha256)."""
+    cache_dir = ensure_cache_dir()
+    dest_name = f"{uuid.uuid4().hex}{suffix or ''}"
+    dest = cache_dir / dest_name
+    sha256 = hashlib.sha256()
+    total = 0
+    with open(dest, "wb") as f:
+        while True:
+            chunk = stream.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            sha256.update(chunk)
+            f.write(chunk)
+    return dest, total, sha256.hexdigest()

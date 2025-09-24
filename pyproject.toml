@@ -1,11 +1,12 @@
 [project]
-name = "proofy-python-unified"
+name = "proofy-python"
 version = "0.1.0"
 description = "Unified Proofy framework for multiple Python testing frameworks"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    { name = "Proofy Team", email = "team@proofy.io" },
+    { name = "Proofy Team", email = "team@proofy.dev" },
+    { name = "Krzysztof Marmol", email = "krzysztof.marmol@gmail.com" },
 ]
 license = { text = "MIT" }
 keywords = ["testing", "proofy", "pytest", "behave", "unittest", "nose2"]
