@@ -16,7 +16,7 @@ def _dummy(result: Any) -> Any:
         return lambda function: function
 
 
-def attributes(**attributes: Any) -> Any:
+def attributes(**attributes: dict[str, Any]) -> Any:  # type: ignore
     # Delegate to framework-specific marker creation
     return _dummy(_plugin_manager.hook.proofy_mark_attributes(attributes=attributes))
 
