@@ -108,7 +108,7 @@ def test_example():
 ### Decorators
 
 ```python
-from proofy.decorators import name, description, severity
+from proofy import name, description, severity
 
 @name("User Login Test")
 @description("Tests user authentication flow")

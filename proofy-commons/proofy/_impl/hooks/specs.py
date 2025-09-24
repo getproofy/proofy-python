@@ -6,7 +6,7 @@ from typing import Any
 
 from pluggy import HookimplMarker, HookspecMarker
 
-from ..core.models import TestResult
+from ...core.models import TestResult
 
 hookspec = HookspecMarker("proofy")
 hookimpl = HookimplMarker("proofy")
@@ -117,7 +117,9 @@ class ProofyHookSpecs:
     # ========== Metadata Hooks ==========
 
     @hookspec
-    def proofy_add_attributes(self, test_id: str | None, attributes: dict[str, Any]) -> None:
+    def proofy_add_attributes(
+        self, test_id: str | None, attributes: dict[str, Any]
+    ) -> None:
         """Called to add attributes to a test.
 
         Args:
@@ -162,14 +164,6 @@ class ProofyHookSpecs:
         """
 
     # ========== Run Management Hooks ==========
-
-    @hookspec
-    def proofy_set_run_name(self, name: str) -> None:
-        """Called to set/override the test run name.
-
-        Args:
-            name: New name for the test run
-        """
 
     @hookspec
     def proofy_run_created(self, run_id: int, run_name: str) -> None:

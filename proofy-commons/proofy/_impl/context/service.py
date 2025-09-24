@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from ...core.models import TestResult
-from ...export.attachments import cache_attachment, should_cache_for_mode
-from ...hooks.manager import get_plugin_manager
+from ..export.attachments import cache_attachment, should_cache_for_mode
+from ..hooks.manager import get_plugin_manager
 from .backend import ContextBackend, ThreadLocalBackend
 from .models import SessionContext
 
@@ -38,7 +38,9 @@ class ContextService:
     def start_session(
         self, run_id: int | None = None, config: dict[str, Any] | None = None
     ) -> SessionContext:
-        session = SessionContext(session_id=str(uuid.uuid4()), run_id=run_id, config=config)
+        session = SessionContext(
+            session_id=str(uuid.uuid4()), run_id=run_id, config=config
+        )
         self.backend.set_session(session)
         return session
 

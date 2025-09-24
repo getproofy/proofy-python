@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
+import json
 from typing import Any, ClassVar
 
-from proofy.utils import format_datetime_rfc3339
+from .utils import format_datetime_rfc3339
 
 
 class RunStatus(int, Enum):
@@ -38,14 +39,6 @@ class ReportingStatus(int, Enum):
     FAILED = -1
 
 
-class ProofyAttributes(str, Enum):
-    """Standard Proofy attribute names."""
-
-    DESCRIPTION = "description"
-    SEVERITY = "severity"
-    TITLE = "title"
-
-
 @dataclass
 class Attachment:
     """Test attachment with file information."""
@@ -72,7 +65,9 @@ class FixtureResult:
 class TestResult:
     """Unified test result model."""
 
-    __test__: ClassVar[bool] = False  # Prevent pytest from treating this as a test class
+    __test__: ClassVar[bool] = (
+        False  # Prevent pytest from treating this as a test class
+    )
 
     id: str  # Local ID
     name: str  # Display name
@@ -113,7 +108,7 @@ class TestResult:
 
         def convert_value(val: Any) -> Any:
             if isinstance(val, datetime):
-                format_datetime_rfc3339(val)
+                return format_datetime_rfc3339(val)
             elif isinstance(val, list):
                 return [convert_value(v) for v in val]
             elif isinstance(val, dict):
@@ -163,6 +158,9 @@ class TestResult:
             merged.update(self.attributes)
 
         if self.tags:
-            merged.update({"__proofy_tags": self.tags})
+            merged.update({"__proofy_tags": json.dumps(self.tags)})
+
+        if self.parameters:
+            merged.update({"__proofy_parameters": json.dumps(self.parameters)})
 
         return merged

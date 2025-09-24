@@ -105,7 +105,7 @@ pm.register_plugin(MyPlugin())
 
 - **ProofyClient**: Unified API client supporting both sync and async patterns
 - **TestResult**: Comprehensive test result model with backward compatibility
-- **Enums**: ResultStatus, RunStatus, ProofyAttributes for type safety
+- **Enums**: ResultStatus, RunStatus, for type safety
 
 ### Hook System
 
@@ -187,7 +187,6 @@ class ProofyClient:
 def set_name(name: str, test_id: Optional[str] = None) -> None
 def set_description(description: str, test_id: Optional[str] = None) -> None
 def set_severity(severity: str, test_id: Optional[str] = None) -> None
-def add_metadata(key: str, value: Any, test_id: Optional[str] = None) -> None
 def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None
 def add_tag(tag: str, test_id: Optional[str] = None) -> None
 def add_tags(tags: List[str], test_id: Optional[str] = None) -> None
@@ -201,14 +200,6 @@ def add_attachment(
     *,
     name: str,
     mime_type: Optional[str] = None,
-    test_id: Optional[str] = None,
-) -> None
-
-def add_file(
-    file: Union[str, Path],
-    *,
-    name: str,
-    content_type: Optional[str] = None,
     test_id: Optional[str] = None,
 ) -> None
 ```
