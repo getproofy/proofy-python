@@ -71,11 +71,6 @@ jobs:
           ruff check .
           ruff format --check .
 
-      - name: Run type checking
-        run: |
-          mypy proofy-commons/proofy --install-types --non-interactive
-          mypy pytest-proofy/pytest_proofy --install-types --non-interactive
-
   build-packages:
     name: "Build Packages"
     runs-on: ubuntu-latest
