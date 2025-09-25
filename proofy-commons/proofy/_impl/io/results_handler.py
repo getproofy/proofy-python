@@ -84,9 +84,7 @@ class ResultsHandler:
                 )
                 run_id = response.get("id", None)
                 if not run_id:
-                    raise RuntimeError(
-                        f"'run_id' not found in response: {json.dumps(response)}"
-                    )
+                    raise RuntimeError(f"'run_id' not found in response: {json.dumps(response)}")
             except Exception as e:
                 logger.error(
                     f"Run {name!r} creation failed for project {self.project_id}: {e}",
@@ -183,9 +181,7 @@ class ResultsHandler:
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
             logger.error(f"Failed to send result for run {result.run_id}: {e}")
-            raise RuntimeError(
-                f"Failed to send result for run {result.run_id}: {e}"
-            ) from e
+            raise RuntimeError(f"Failed to send result for run {result.run_id}: {e}") from e
         else:
             result.reporting_status = ReportingStatus.FINISHED
             result.result_id = result_id
@@ -204,9 +200,7 @@ class ResultsHandler:
             )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
-            logger.error(
-                f"Failed to update result {result.result_id} for run {result.run_id}: {e}"
-            )
+            logger.error(f"Failed to update result {result.result_id} for run {result.run_id}: {e}")
             raise RuntimeError(
                 f"Failed to update result {result.result_id} for run {result.run_id}: {e}"
             ) from e

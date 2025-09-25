@@ -171,9 +171,7 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
             False,
             bool,
         ),
-        run_id=get_option(
-            "proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int
-        ),
+        run_id=get_option("proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int),
         run_name=get_option("proofy_run_name", "PROOFY_RUN_NAME", "proofy_run_name"),
     )
 
@@ -185,9 +183,7 @@ def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     parser.addini("proofy_token", "Proofy API token")
     parser.addini("proofy_project_id", "Proofy project ID")
     parser.addini("proofy_batch_size", "Batch size for results", default="10")
-    parser.addini(
-        "proofy_output_dir", "Output directory for backups", default="proofy-artifacts"
-    )
+    parser.addini("proofy_output_dir", "Output directory for backups", default="proofy-artifacts")
     parser.addini("proofy_always_backup", "Always create backup files", default="false")
     parser.addini("proofy_run_id", "Existing run ID")
     parser.addini("proofy_run_name", "Test run name")

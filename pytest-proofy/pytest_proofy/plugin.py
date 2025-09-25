@@ -80,9 +80,7 @@ class ProofyPytestPlugin:
     def _get_test_path(self, item: pytest.Item) -> Path:
         """Get relative path for test."""
         try:
-            root = getattr(item.config, "rootpath", None) or getattr(
-                item.config, "rootdir", None
-            )
+            root = getattr(item.config, "rootpath", None) or getattr(item.config, "rootdir", None)
             if root:
                 return Path(item.fspath).relative_to(Path(root))
         except Exception:
@@ -103,11 +101,7 @@ class ProofyPytestPlugin:
         attributes = {}
         for mark in item.iter_markers(name="proofy_attributes"):
             attributes.update(
-                {
-                    key: value
-                    for key, value in mark.kwargs.items()
-                    if key not in attributes
-                }
+                {key: value for key, value in mark.kwargs.items() if key not in attributes}
             )
         return attributes
 
@@ -163,9 +157,7 @@ class ProofyPytestPlugin:
         report: TestReport = outcome.get_result()  # type: ignore[attr-defined]
 
         status = self._outcome_to_status(report.outcome)
-        result: TestResult | None = self.results_handler.get_result(
-            self._get_test_id(item)
-        )
+        result: TestResult | None = self.results_handler.get_result(self._get_test_id(item))
 
         # Create result if not exists yet
         if not result:
@@ -191,9 +183,7 @@ class ProofyPytestPlugin:
         if report.when == "teardown":
             end_time = datetime.now(timezone.utc)
             result.ended_at = end_time
-            result.duration_ms = int(
-                (end_time - result.started_at).total_seconds() * 1000
-            )
+            result.duration_ms = int((end_time - result.started_at).total_seconds() * 1000)
             if (
                 status in (ResultStatus.FAILED, ResultStatus.BROKEN)
                 and result.status == ResultStatus.PASSED

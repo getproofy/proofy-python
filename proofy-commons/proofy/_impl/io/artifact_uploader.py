@@ -15,7 +15,6 @@ from ...core.client import ArtifactType, ProofyClient
 from ...core.models import Attachment, TestResult
 from ..export.attachments import is_cached_path
 
-
 logger = logging.getLogger("ProofyConductor")
 
 
@@ -58,9 +57,7 @@ class ArtifactUploader:
             effective_mime = mime_type or guessed or "application/octet-stream"
 
             if not result.run_id or not result.result_id:
-                raise RuntimeError(
-                    "Cannot upload attachment without run_id and result_id."
-                )
+                raise RuntimeError("Cannot upload attachment without run_id and result_id.")
 
             # Prefer fast path with known size/hash via high-level helper
             if size_bytes is not None and sha256 is not None:
@@ -119,11 +116,7 @@ class ArtifactUploader:
         except Exception as e:
             # Fall back to simple message; guard name access across dict
             try:
-                at_name = (
-                    attachment["name"]
-                    if isinstance(attachment, dict)
-                    else attachment.name
-                )
+                at_name = attachment["name"] if isinstance(attachment, dict) else attachment.name
             except Exception:
                 at_name = "<unknown>"
             logger.error(f"Failed to upload attachment {at_name}: {e}")

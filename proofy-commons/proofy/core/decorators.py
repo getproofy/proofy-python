@@ -16,14 +16,14 @@ def _dummy(result: Any) -> Any:
         return lambda function: function
 
 
-def attributes(**attributes: dict[str, Any]) -> Any:  # type: ignore
+def attributes(**attributes: dict[str, Any]) -> Any:
     # Delegate to framework-specific marker creation
     return _dummy(_plugin_manager.hook.proofy_mark_attributes(attributes=attributes))
 
 
 def name(name: str) -> Any:
     # Plugin looks for 'name' to override display name
-    return attributes(**{"name": name})
+    return attributes(**{"name": name})  # type: ignore[arg-type]
 
 
 def title(title: str) -> Any:
@@ -31,13 +31,13 @@ def title(title: str) -> Any:
 
 
 def description(description: str) -> Any:
-    return attributes(**{"description": description})
+    return attributes(**{"description": description})  # type: ignore[arg-type]
 
 
 def severity(level: str) -> Any:
-    return attributes(**{"severity": level})
+    return attributes(**{"severity": level})  # type: ignore[arg-type]
 
 
 def tags(*tags: str) -> Any:
     # Store under special key for pytest plugin to split into Result.tags
-    return attributes(**{"tags": list(tags)})
+    return attributes(**{"tags": list(tags)})  # type: ignore[arg-type]
