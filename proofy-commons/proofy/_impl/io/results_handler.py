@@ -225,6 +225,7 @@ class ResultsHandler:
                 self.update_test_result(result)
 
                 # Upload attachments (best-effort)
+                self._upload_traceback(result)
                 for attachment in result.attachments:
                     self._upload_attachment(result, attachment)
 
@@ -250,6 +251,10 @@ class ResultsHandler:
                 logger.error(f"Failed to send result in lazy mode: {e}")
             else:
                 result.reporting_status = ReportingStatus.FINISHED
+                try:
+                    self._upload_traceback(result)
+                except Exception as e:
+                    logger.error(f"Failed to upload traceback in lazy mode: {e}")
                 for attachment in result.attachments:
                     try:
                         self._upload_attachment(result, attachment)
@@ -276,6 +281,10 @@ class ResultsHandler:
                 logger.error(f"Failed to send result in batch mode: {e}")
             else:
                 result.reporting_status = ReportingStatus.FINISHED
+                try:
+                    self._upload_traceback(result)
+                except Exception as e:
+                    logger.error(f"Failed to upload traceback in batch mode: {e}")
                 for attachment in result.attachments:
                     try:
                         self._upload_attachment(result, attachment)
@@ -381,17 +390,48 @@ class ResultsHandler:
                 at_name = attachment["name"] if isinstance(attachment, dict) else attachment.name
             except Exception:
                 at_name = "<unknown>"
-            print(f"Failed to upload attachment {at_name}: {e}")
+            logger.error(f"Failed to upload attachment {at_name}: {e}")
             raise e
+
+    def _upload_traceback(self, result: TestResult) -> None:
+        try:
+            if not self.client:
+                return
+            if not result.traceback:
+                return
+            if not result.run_id or not result.result_id:
+                return
+
+            base_name = result.name or result.path or result.id or "test"
+            safe_name = "".join(
+                c if (c.isalnum() or c in ("-", "_")) else "_" for c in str(base_name)
+            )
+            filename = f"{safe_name[:64]}-traceback.txt"
+
+            data_bytes = result.traceback.encode("utf-8", errors="replace")
+
+            self.client.upload_artifact(  # type: ignore[union-attr]
+                run_id=result.run_id,
+                result_id=result.result_id,
+                file=data_bytes,
+                filename=filename,
+                mime_type="text/plain; charset=utf-8",
+                type=ArtifactType.TRACE,
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to upload traceback for result {getattr(result, 'result_id', None)}: {e}"
+            )
 
     # --- Local backups ---
     def backup_results(self) -> None:
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
-            data = [r.to_dict() for r in self.context.get_results().values()]
-            results_file = self._results_path_for_current_process()
+            results_file = self.output_dir / "results.json"
+            items = [r.to_dict() for r in self.context.get_results().values()]
+            payload = {"count": len(items), "items": items}
             with open(results_file, "w") as f:
-                json.dump({"count": len(data), "items": data}, f, indent=2, default=str)
+                json.dump(payload, f, indent=2, default=str)
             logger.info(f"Results backed up to {results_file}")
         except Exception as e:
             logger.error(f"Failed to backup results locally: {e}")

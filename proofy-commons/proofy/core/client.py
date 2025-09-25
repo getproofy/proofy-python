@@ -8,7 +8,7 @@ import mimetypes
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from enum import Enum, IntEnum
+from enum import Enum
 from pathlib import Path
 from typing import IO, Any, Literal, cast
 
@@ -18,7 +18,7 @@ from .models import ResultStatus, RunStatus
 from .utils import format_datetime_rfc3339
 
 
-class ArtifactType(IntEnum):
+class ArtifactType(int, Enum):
     """Artifact type values per API.md."""
 
     TRACE = 1
@@ -90,7 +90,6 @@ class ProofyClient:
         if headers:
             merged_headers.update(headers)
         body = None if json_body is None else self._normalize(json_body)
-        print(f"Request: {method} {url} {body} {merged_headers} {self.timeout_s}")
         response = self.session.request(
             method=method,
             url=url,
@@ -456,6 +455,14 @@ class ProofyClient:
             put_resp.raise_for_status()
 
         artifact_id = cast(int, presign.get("artifact_id"))
+
+        # Skip finalize for now
+        return {
+            "artifact_id": artifact_id,
+            "status_code": 200,
+            "finalize": {},
+        }
+
         status_code, finalize_json = self.finalize_artifact(run_id, result_id, artifact_id)
         return {
             "artifact_id": artifact_id,

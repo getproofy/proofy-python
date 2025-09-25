@@ -161,33 +161,11 @@ class ProofyPytestPlugin:
 
         # Create result if not exists yet
         if not result:
-            try:
-                attributes = self._get_attributes(item)
-                tags = attributes.pop("tags", [])
-
-                parameters = item.callspec.params if hasattr(item, "callspec") else {}
-
-                result = TestResult(
-                    id=self._get_test_id(item),
-                    name=self._get_test_name(item),
-                    path=self._get_path(item),
-                    test_path=self._get_test_path(item).as_posix(),
-                    status=ResultStatus.IN_PROGRESS,
-                    started_at=self._start_time
-                    or datetime.fromtimestamp(report.stop, timezone.utc),
-                    attributes=attributes,
-                    tags=tags,
-                    parameters=parameters,
-                )
-                self.results_handler.on_test_started(result=result)
-            except Exception as e:
-                self._terminal_summary += (
-                    f"Could not create result for test {self._get_test_id(item)}: {e}\n"
-                )
-                return
+            raise RuntimeError(f"Result not found for test {self._get_test_id(item)}")
 
         if report.failed and getattr(call, "excinfo", None) is not None:
             result.message = call.excinfo.exconly()
+            # TODO: handle multiple lines in traceback, add report.when to traceback
             result.traceback = report.longreprtext
 
             if status != ResultStatus.SKIPPED and not isinstance(
@@ -200,6 +178,7 @@ class ProofyPytestPlugin:
 
         if report.when == "call" and result.status == ResultStatus.PASSED:
             result.status = status
+            result.outcome = report.outcome
 
         if report.when == "teardown":
             end_time = datetime.now(timezone.utc)
