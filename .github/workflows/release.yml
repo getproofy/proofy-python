@@ -59,11 +59,11 @@ jobs:
       - name: Run all tests
         run: |
           echo "::group::Testing proofy-commons"
-          cd proofy-commons && python -m pytest tests/ -v
+          cd proofy-commons && python -m pytest tests/ -v && cd ..
           echo "::endgroup::"
 
           echo "::group::Testing pytest-proofy"
-          cd pytest-proofy && python -m pytest tests/ -v -p no:proofy
+          cd pytest-proofy && python -m pytest tests/ -v -p no:proofy && cd ..
           echo "::endgroup::"
 
       - name: Run linting
@@ -180,32 +180,32 @@ jobs:
             dist/proofy-commons/dist/*
             dist/pytest-proofy/dist/*
 
-  publish-to-pypi:
-    name: "Publish to PyPI"
-    runs-on: ubuntu-latest
-    needs: [validate-tag, create-release]
-    if: needs.validate-tag.outputs.is-prerelease == 'false' # Only publish stable releases
-    environment:
-      name: pypi
-      url: https://pypi.org/project/proofy/
-    permissions:
-      id-token: write # For trusted publishing
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-packages
-          path: dist/
+  # publish-to-pypi:
+  #   name: "Publish to PyPI"
+  #   runs-on: ubuntu-latest
+  #   needs: [validate-tag, create-release]
+  #   if: needs.validate-tag.outputs.is-prerelease == 'false' # Only publish stable releases
+  #   environment:
+  #     name: pypi
+  #     url: https://pypi.org/project/proofy/
+  #   permissions:
+  #     id-token: write # For trusted publishing
+  #   steps:
+  #     - name: Download build artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: dist-packages
+  #         path: dist/
 
-      - name: Publish proofy-commons to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/proofy-commons/dist/
+  #     - name: Publish proofy-commons to PyPI
+  #       uses: pypa/gh-action-pypi-publish@release/v1
+  #       with:
+  #         packages-dir: dist/proofy-commons/dist/
 
-      - name: Publish pytest-proofy to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/pytest-proofy/dist/
+  #     - name: Publish pytest-proofy to PyPI
+  #       uses: pypa/gh-action-pypi-publish@release/v1
+  #       with:
+  #         packages-dir: dist/pytest-proofy/dist/
 
   publish-to-test-pypi:
     name: "Publish to Test PyPI"
