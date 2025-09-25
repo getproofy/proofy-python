@@ -3,47 +3,10 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 import pytest
-
-Mode = Literal["live", "batch", "lazy"]
-
-
-@dataclass
-class ProofyConfig:
-    """Configuration for pytest-proofy plugin."""
-
-    # Core settings
-    mode: Mode = "lazy"
-    api_base: str | None = None
-    token: str | None = None
-    project_id: int | None = None
-
-    # Batch settings
-    batch_size: int = 10
-
-    # Output settings
-    output_dir: str = "proofy-artifacts"
-    always_backup: bool = False
-
-    cache_attachments: bool = True
-
-    # Run settings
-    run_id: int | None = None
-    run_name: str | None = None
-
-    # Feature flags
-    enable_attachments: bool = True
-    enable_hooks: bool = True
-
-    # Timeout settings
-    timeout_s: float = 30.0
-
-    # Retry settings
-    max_retries: int = 3
-    retry_delay: float = 1.0
+from proofy._impl.config import ProofyConfig
 
 
 def register_options(parser: pytest.Parser) -> None:
@@ -62,7 +25,7 @@ def register_options(parser: pytest.Parser) -> None:
         "--proofy-api-base",
         action="store",
         default=None,
-        help="Proofy API base URL (e.g., https://api.proofy.io)",
+        help="Proofy API base URL (e.g., https://api.proofy.dev)",
     )
     group.addoption(
         "--proofy-token",
@@ -125,22 +88,6 @@ def register_options(parser: pytest.Parser) -> None:
         "--proofy-disable-hooks",
         action="store_true",
         help="Disable plugin hook system",
-    )
-
-    # Performance options
-    group.addoption(
-        "--proofy-timeout",
-        action="store",
-        type=float,
-        default=None,
-        help="API request timeout in seconds",
-    )
-    group.addoption(
-        "--proofy-max-retries",
-        action="store",
-        type=int,
-        default=None,
-        help="Maximum number of API retry attempts",
     )
 
 
@@ -221,24 +168,6 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
         ),
         run_id=get_option("proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int),
         run_name=get_option("proofy_run_name", "PROOFY_RUN_NAME", "proofy_run_name"),
-        enable_attachments=not get_option(
-            "proofy_disable_attachments",
-            "PROOFY_DISABLE_ATTACHMENTS",
-            "proofy_disable_attachments",
-            False,
-            bool,
-        ),
-        enable_hooks=not get_option(
-            "proofy_disable_hooks",
-            "PROOFY_DISABLE_HOOKS",
-            "proofy_disable_hooks",
-            False,
-            bool,
-        ),
-        timeout_s=get_option("proofy_timeout", "PROOFY_TIMEOUT", "proofy_timeout", 30.0, float),
-        max_retries=get_option(
-            "proofy_max_retries", "PROOFY_MAX_RETRIES", "proofy_max_retries", 3, int
-        ),
     )
 
 
@@ -255,5 +184,3 @@ def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     parser.addini("proofy_run_name", "Test run name")
     parser.addini("proofy_disable_attachments", "Disable attachments", default="false")
     parser.addini("proofy_disable_hooks", "Disable hooks", default="false")
-    parser.addini("proofy_timeout", "API timeout in seconds", default="30.0")
-    parser.addini("proofy_max_retries", "Maximum retry attempts", default="3")

@@ -7,7 +7,7 @@ Pytest plugin for Proofy test reporting with real-time results and rich metadata
 - **Multiple Reporting Modes**: Live, Lazy, and Batch reporting
 - **Rich Metadata**: Decorators for test description, severity, tags, and custom attributes
 - **Attachment Support**: Add screenshots, logs, and other files to test results
-- **Hook System**: Extensible plugin architecture via proofy-commons
+- **Hook System**: Extensible plugin architecture via proofy
 - **Flexible Configuration**: CLI, environment variables, and pytest.ini support
 - **Local Backup**: Automatic fallback to local JSON export
 
@@ -20,7 +20,7 @@ pip install pytest-proofy
 Or install from the unified package:
 
 ```bash
-pip install proofy-python-unified[pytest]
+pip install proofy-python[pytest]
 ```
 
 ## Quick Start
@@ -28,7 +28,7 @@ pip install proofy-python-unified[pytest]
 ### Basic Usage
 
 ```bash
-pytest --proofy-api-base https://api.proofy.io \
+pytest --proofy-api-base https://api.proofy.dev \
        --proofy-token YOUR_TOKEN \
        --proofy-project-id 123 \
        --proofy-mode live
@@ -59,17 +59,13 @@ pytest --proofy-api-base https://api.proofy.io \
 # Output options
 --proofy-output-dir DIR             # Local backup directory
 --proofy-always-backup              # Always create local backup
-
-# Performance options
---proofy-timeout SECONDS            # API timeout (default: 30)
---proofy-max-retries N              # Max retry attempts (default: 3)
 ```
 
 #### Environment Variables
 
 ```bash
 export PROOFY_MODE=live
-export PROOFY_API_BASE=https://api.proofy.io
+export PROOFY_API_BASE=https://api.proofy.dev
 export PROOFY_TOKEN=your-token-here
 export PROOFY_PROJECT_ID=123
 ```
@@ -79,11 +75,10 @@ export PROOFY_PROJECT_ID=123
 ```ini
 [tool:pytest]
 proofy_mode = lazy
-proofy_api_base = https://api.proofy.io
+proofy_api_base = https://api.proofy.dev
 proofy_token = your-token-here
 proofy_project_id = 123
 proofy_batch_size = 20
-proofy_enable_attachments = true
 proofy_output_dir = test-artifacts
 ```
 
@@ -110,10 +105,10 @@ Sends complete results after test execution:
 pytest --proofy-mode lazy
 ```
 
-- Collects all test data during execution
-- Sends complete results after test finishes
-- Background processing for better performance
+- Collects results during execution
+- Sends all results in batches at session end
 - Best for CI/CD environments
+- (add info about testing time saving)
 
 ### Batch Mode
 
@@ -124,7 +119,7 @@ pytest --proofy-mode batch --proofy-batch-size 50
 ```
 
 - Collects results during execution
-- Sends all results in batches at session end
+- Sends results in batches (during test ??)
 - Optimized for large test suites
 - Configurable batch size
 
@@ -300,7 +295,7 @@ pm.register_plugin(CustomProofyPlugin())
 
    ```bash
    # Verify token is correct
-   curl -H "Authorization: Bearer YOUR_TOKEN" https://api.proofy.io/health
+   curl -H "Authorization: Bearer YOUR_TOKEN" https://api.proofy.dev/health
    ```
 
 2. **Connection Issues**

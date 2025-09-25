@@ -14,7 +14,7 @@ This guide shows how to configure the Proofy plugin using environment variables 
 
    ```bash
    # Required for API integration
-   PROOFY_API_BASE=https://your-api.proofy.io
+   PROOFY_API_BASE=https://your-api.proofy.dev
    PROOFY_TOKEN=your_actual_token_here
    PROOFY_PROJECT_ID=your_project_id
    ```
@@ -42,18 +42,9 @@ This guide shows how to configure the Proofy plugin using environment variables 
 
 - `PROOFY_MODE` - Operation mode: `live`, `lazy`, or `batch`
 - `PROOFY_BATCH_SIZE` - Number of results to batch (default: 10)
-- `PROOFY_TIMEOUT_S` - API timeout in seconds (default: 30.0)
-- `PROOFY_MAX_RETRIES` - Maximum retry attempts (default: 3)
-- `PROOFY_RETRY_DELAY` - Delay between retries in seconds (default: 1.0)
-
-### Features
-
-- `PROOFY_ENABLE_ATTACHMENTS` - Enable file attachments (`true`/`false`)
-- `PROOFY_ENABLE_HOOKS` - Enable hook system (`true`/`false`)
 
 ### Local Backup
 
-- `PROOFY_ALWAYS_BACKUP` - Always create local backup (`true`/`false`)
 - `PROOFY_OUTPUT_DIR` - Directory for local results (default: `./proofy-artifacts`)
 
 ### Run Configuration
@@ -100,7 +91,7 @@ pytest tests/ --proofy-mode batch
 ### API Integration Testing
 
 ```bash
-export PROOFY_API_BASE=https://api.proofy.io
+export PROOFY_API_BASE=https://api.proofy.dev
 export PROOFY_TOKEN=your_token
 export PROOFY_PROJECT_ID=123
 export PROOFY_MODE=live

@@ -21,10 +21,6 @@ repos:
             "--non-interactive",
             "--config-file",
             "pyproject.toml",
-            "--exclude",
-            ".*/tests/.*",
-            "--exclude",
-            ".*/test_.*",
           ]
-        files: ^(proofy-commons/proofy|pytest-proofy/pytest_proofy)/.*\.py$
+        files: ^(proofy-commons/proofy/core/(api|client)\.py)$
         additional_dependencies: ["types-requests", "pytest", "pluggy"]

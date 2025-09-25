@@ -1,399 +1,464 @@
-"""Unified Proofy API client combining both project approaches."""
+"""Proofy API client"""
 
 from __future__ import annotations
 
+import hashlib
 import json
-import logging
-import urllib.parse
-from collections.abc import Iterable
-from datetime import datetime
+import mimetypes
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from enum import Enum, IntEnum
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import IO, Any, Literal, cast
 
 import requests
 
-from .models import ResultStatus, RunStatus, TestResult
-
-logger = logging.getLogger(__name__)
-
-
-def format_datetime_rfc3339(dt: datetime | str) -> str:
-    """Format datetime to RFC 3339 format."""
-    if isinstance(dt, str):
-        return dt  # Already formatted, assume it's correct
-
-    if dt.tzinfo is None:
-        # Assume UTC if no timezone info
-        return dt.isoformat() + "Z"
-    else:
-        # Use timezone-aware formatting
-        return dt.isoformat()
+from .models import ResultStatus, RunStatus
+from .utils import format_datetime_rfc3339
 
 
-class ProofyDataEncoder(json.JSONEncoder):
-    """Custom JSON encoder for Proofy data types."""
+class ArtifactType(IntEnum):
+    """Artifact type values per API.md."""
 
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, datetime):
-            return format_datetime_rfc3339(obj)
-        elif isinstance(obj, Path):
-            return str(obj)
-        return super().default(obj)
+    TRACE = 1
+    SCREENSHOT = 2
+    LOG = 3
+    VIDEO = 4
+    ATTACHMENT = 5
+    OTHER = 6
+
+
+@dataclass(frozen=True)
+class PresignUpload:
+    """Information needed to perform the object upload to storage."""
+
+    method: Literal["PUT"]
+    url: str
+    headers: Mapping[str, str]
+    expires_at: str
 
 
 class ProofyClient:
-    """Unified Proofy API client supporting both sync and async patterns.
+    """Pure client for the `/v1` Proofy API."""
 
-    Combines the simple send-based API (current project) with the
-    create/update-based API (old project) that returns server IDs.
-    """
+    DEFAULT_HEADERS: Mapping[str, str] = {
+        "Accept": "*/*",
+        "User-Agent": "proofy-python-0.1.0/client",
+    }
 
-    HEADERS = {"Content-Type": "application/json", "Accept": "*/*"}
-
-    def __init__(
-        self,
-        base_url: str,
-        token: str | None = None,
-        api_key: str | None = None,  # Legacy compatibility
-        timeout_s: float = 10.0,
-    ) -> None:
-        """Initialize the Proofy client.
-
-        Args:
-            base_url: Base URL for the Proofy API
-            token: Bearer token for authentication (preferred)
-            api_key: API key for authentication (legacy compatibility)
-            timeout_s: Request timeout in seconds
-        """
+    def __init__(self, base_url: str, token: str | None = None, timeout_s: float = 10.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
-
-        # Setup session
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "proofy-python-unified/0.1.0", **self.HEADERS})
+        self.session.headers.update(dict(self.DEFAULT_HEADERS))
+        if token:
+            self.session.headers["Authorization"] = f"Bearer {token}"
 
-        # Authentication - prefer token over api_key
-        auth_token = token or api_key
-        if auth_token:
-            self.session.headers.update({"Authorization": f"Bearer {auth_token}"})
+    # ============================== Helpers ===============================
+    @staticmethod
+    def _normalize(value: Any) -> Any:
+        """Convert datetimes, paths, and enums to JSON-serializable primitives."""
+        if isinstance(value, datetime):
+            # Ensure timezone-aware and RFC 3339 encoding
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            return format_datetime_rfc3339(value)
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, Enum):
+            return value.value
+        if isinstance(value, dict):
+            return {k: ProofyClient._normalize(v) for k, v in value.items()}
+        if isinstance(value, list | tuple):
+            return [ProofyClient._normalize(v) for v in value]
+        return value
 
-    # ========== Current Project API (send-based, for compatibility) ==========
+    def _url(self, path: str) -> str:
+        return f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
 
-    def send_test_result(self, result: TestResult) -> dict[str, Any]:
-        """Send a single test result (current project compatibility)."""
-        if result.server_id and result.run_id:
-            # If we have server_id, this is an update
-            return self.update_test_result(
-                run_id=result.run_id,
-                result_id=result.server_id,
-                status=result.status or self._outcome_to_status(result.outcome),
-                ended_at=result.ended_at or datetime.now(),
-                duration_ms=int(result.effective_duration_ms or 0),
-                message=result.message or result.traceback,
-                attributes=result.merge_metadata(),
-            )
-        else:
-            # New result - create it
-            url = f"{self.base_url}/results"
-            payload = result.to_dict()
-            response = self.session.post(url, json=payload, timeout=self.timeout_s)
-            return response.json()  # type: ignore[no-any-return]
-
-    def send_test_results(self, results: Iterable[TestResult]) -> requests.Response:
-        """Send multiple test results in batch (current project compatibility)."""
-        url = f"{self.base_url}/results/batch"
-        payload: list[dict[str, Any]] = [r.to_dict() for r in results]
-        return self.session.post(url, json=payload, timeout=self.timeout_s)
-
-    def get_presigned_url(self, filename: str) -> requests.Response:
-        """Get presigned URL for attachment upload (current project)."""
-        url = f"{self.base_url}/attachments/presign"
-        payload = {"filename": filename}
-        return self.session.post(url, json=payload, timeout=self.timeout_s)
-
-    def confirm_attachment(self, attachment_id: str) -> requests.Response:
-        """Confirm attachment upload (current project)."""
-        url = f"{self.base_url}/attachments/{attachment_id}/confirm"
-        return self.session.post(url, timeout=self.timeout_s)
-
-    # ========== Old Project API (create/update-based, returns server IDs) ==========
-
-    def create_test_run(
+    def _request(
         self,
-        project: int,
-        name: str,
-        status: RunStatus,
-        attributes: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Create a new test run and return its details including ID."""
-        return cast(
-            dict[str, Any],
-            self._send_request(
-                "POST",
-                "/v1/runs",
-                data={
-                    "project_id": project,
-                    "name": name,
-                    "started_at": format_datetime_rfc3339(datetime.now()),
-                    "attributes": attributes or {},
-                },
-            ).json(),
-        )
-
-    def update_test_run(
-        self,
-        run_id: int,
-        status: RunStatus,
-        ended_at: str | datetime,
-        attributes: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Update an existing test run."""
-        return cast(
-            dict[str, Any],
-            self._send_request(
-                "PATCH",
-                f"/v1/runs/{run_id}",
-                data={
-                    "status": status,
-                    "ended_at": format_datetime_rfc3339(ended_at),
-                    "attributes": attributes or {},
-                },
-            ).json(),
-        )
-
-    def create_test_result(
-        self,
-        run_id: int,
-        display_name: str,
+        method: Literal["GET", "POST", "PATCH"],
         path: str,
-        status: int | ResultStatus | None = None,
-        started_at: str | datetime | None = None,
-        ended_at: str | datetime | None = None,
-        duration_ms: int = 0,
-        message: str | None = None,
+        *,
+        json_body: dict[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> requests.Response:
+        url = self._url(path)
+        merged_headers = dict(self.session.headers)
+        if headers:
+            merged_headers.update(headers)
+        body = None if json_body is None else self._normalize(json_body)
+        print(f"Request: {method} {url} {body} {merged_headers} {self.timeout_s}")
+        response = self.session.request(
+            method=method,
+            url=url,
+            json=body,
+            headers=merged_headers,
+            timeout=self.timeout_s,
+        )
+        response.raise_for_status()
+        return response
+
+    @staticmethod
+    def _stringify_attributes(attributes: dict[str, Any]) -> dict[str, str]:
+        """Coerce attribute keys and values to strings, JSON-encoding complex values.
+
+        - Keys are converted using str()
+        - Values:
+          - str → unchanged
+          - dict/list/tuple/set → json.dumps(..., default=str)
+          - other → str(value)
+        Datetimes, Enums, Paths inside values are normalized via _normalize first.
+        """
+        normalized = ProofyClient._normalize(attributes)
+        result: dict[str, str] = {}
+        for key, value in cast(dict[str, Any], normalized).items():
+            key_str = str(key)
+            if isinstance(value, str):
+                result[key_str] = value
+            elif isinstance(value, dict | list | tuple | set):
+                result[key_str] = json.dumps(value, default=str)
+            else:
+                result[key_str] = str(value)
+        return result
+
+    def health(self) -> str:
+        """Check service health; returns the response text (expected: "ok")."""
+        response = self._request("GET", "/health")
+        return response.text
+
+    # ============================= Runs =============================
+    def create_run(
+        self,
+        *,
+        project_id: int,
+        name: str,
+        started_at: datetime | str | None = None,
+        attributes: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a run (POST /v1/runs) and return JSON.
+
+        The server defaults `started_at` to now if omitted and sets status to STARTED.
+        """
+        data: dict[str, Any] = {
+            "project_id": int(project_id),
+            "name": name,
+        }
+        if started_at is not None:
+            data["started_at"] = started_at
+        if attributes:
+            data["attributes"] = self._stringify_attributes(attributes)
+
+        return cast(dict[str, Any], self._request("POST", "/v1/runs", json_body=data).json())
+
+    def update_run(
+        self,
+        run_id: int,
+        *,
+        name: str | None = None,
+        status: RunStatus | int | None = None,
+        ended_at: datetime | str | None = None,
         attributes: dict[str, Any] | None = None,
     ) -> int:
-        """Create a new test result and return its server-assigned ID."""
-        if not run_id:
-            raise ValueError("Run id cannot be None.")
+        """Update a run (PATCH /v1/runs/{run_id}). Returns status code (expected 204).
 
-        data: dict[str, Any] = {
-            "name": display_name,
-            "path": path,
-            "attributes": attributes or {},
-        }
-
-        # Add optional fields only if provided
+        Rules enforced client-side to reduce server errors:
+        - If `status` is provided, `ended_at` must also be provided.
+        - If `ended_at` is provided, `status` must also be provided.
+        - At least one updatable field must be present.
+        """
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
         if status is not None:
-            data["status"] = status
-        if started_at is not None:
-            data["started_at"] = format_datetime_rfc3339(started_at)
+            body["status"] = status
         if ended_at is not None:
-            data["ended_at"] = format_datetime_rfc3339(ended_at)
-        if duration_ms > 0:
-            data["duration_ms"] = duration_ms
-        if message:
-            data["message"] = message
+            body["ended_at"] = ended_at
+        if attributes:
+            body["attributes"] = self._stringify_attributes(attributes)
 
-        response = self._send_request(
-            "POST",
-            f"/v1/runs/{int(run_id)}/results",
-            data=data,
-        )
-        result_id = response.json().get("id")
-        if not result_id:
-            raise ValueError("Server did not return a result ID")
-        return int(result_id)
+        if ("status" in body) ^ ("ended_at" in body):
+            raise ValueError("Both 'status' and 'ended_at' must be provided together.")
+        if not body:
+            raise ValueError("No fields to update were provided.")
 
-    def create_test_result_batches(
-        self, run_id: int, results: list[TestResult]
-    ) -> list[dict[str, Any]]:
-        """Create multiple test results in batch and return their IDs."""
-        items: list[dict[str, Any]] = []
-        for result in results:
-            item: dict[str, Any] = {
-                "name": result.name,
-                "path": result.path,
-                "attributes": result.merge_metadata(),
-            }
+        response = self._request("PATCH", f"/v1/runs/{int(run_id)}", json_body=body)
+        return response.status_code
 
-            # Add optional fields
-            if result.status is not None:
-                item["status"] = result.status
-            elif result.outcome:
-                item["status"] = self._outcome_to_status(result.outcome)
-
-            if result.started_at:
-                item["started_at"] = format_datetime_rfc3339(result.started_at)
-            if result.ended_at:
-                item["ended_at"] = format_datetime_rfc3339(result.ended_at)
-            if result.effective_duration_ms:
-                item["duration_ms"] = int(result.effective_duration_ms)
-            if result.message or result.traceback:
-                item["message"] = result.message or result.traceback
-
-            items.append(item)
-
-        response = self._send_request(
-            "POST", f"/v1/runs/{run_id}/results/batch", data={"items": items}
-        )
-        return response.json().get("items", [])  # type: ignore[no-any-return]
-
-    def update_test_result(
+    # ============================ Results ============================
+    def create_result(
         self,
         run_id: int,
-        result_id: int,
-        status: int | ResultStatus | None = None,
-        ended_at: str | datetime | None = None,
+        *,
+        name: str,
+        path: str,
+        status: ResultStatus | int | None = None,
+        started_at: datetime | str | None = None,
+        ended_at: datetime | str | None = None,
         duration_ms: int | None = None,
         message: str | None = None,
         attributes: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Update an existing test result."""
-        data: dict[str, Any] = {}
-
-        # Add only provided fields
+        """Create a result (POST /v1/runs/{run_id}/results) and return JSON."""
+        data: dict[str, Any] = {
+            "name": name,
+            "path": path,
+        }
         if status is not None:
             data["status"] = status
+        if started_at is not None:
+            data["started_at"] = started_at
         if ended_at is not None:
-            data["ended_at"] = format_datetime_rfc3339(ended_at)
-        if duration_ms is not None:
-            data["duration_ms"] = duration_ms
+            data["ended_at"] = ended_at
+        if duration_ms is not None and duration_ms >= 0:
+            data["duration_ms"] = int(duration_ms)
         if message is not None:
             data["message"] = message
         if attributes:
-            data["attributes"] = attributes
+            data["attributes"] = self._stringify_attributes(attributes)
 
         return cast(
             dict[str, Any],
-            self._send_request(
-                "PATCH",
-                f"/v1/runs/{run_id}/results/{result_id}",
-                data=data,
+            self._request("POST", f"/v1/runs/{int(run_id)}/results", json_body=data).json(),
+        )
+
+    def update_result(
+        self,
+        run_id: int,
+        result_id: int,
+        *,
+        status: ResultStatus | int | None = None,
+        ended_at: datetime | str | None = None,
+        duration_ms: int | None = None,
+        message: str | None = None,
+        attributes: dict[str, Any] | None = None,
+    ) -> int:
+        """Update a result (PATCH /v1/runs/{run_id}/results/{result_id}). Returns status code (expected 204)."""
+        body: dict[str, Any] = {}
+        if status is not None:
+            body["status"] = status
+        if ended_at is not None:
+            body["ended_at"] = ended_at
+        if duration_ms is not None:
+            if duration_ms < 0:
+                raise ValueError("'duration_ms' must be >= 0 when provided.")
+            body["duration_ms"] = int(duration_ms)
+        if message is not None:
+            body["message"] = message
+        if attributes:
+            body["attributes"] = self._stringify_attributes(attributes)
+
+        if not body:
+            raise ValueError("No fields to update were provided.")
+        if ("status" in body) and ("ended_at" not in body):
+            raise ValueError("Setting a terminal 'status' requires 'ended_at'.")
+
+        response = self._request(
+            "PATCH", f"/v1/runs/{int(run_id)}/results/{int(result_id)}", json_body=body
+        )
+        return response.status_code
+
+    # ============================ Artifacts ===========================
+    def presign_artifact(
+        self,
+        run_id: int,
+        result_id: int,
+        *,
+        filename: str,
+        mime_type: str,
+        size_bytes: int,
+        hash_sha256: str,
+        type: ArtifactType | int = ArtifactType.OTHER,
+    ) -> dict[str, Any]:
+        """Presign an artifact upload (POST /v1/.../artifacts/presign) and return JSON."""
+        if size_bytes <= 0:
+            raise ValueError("'size_bytes' must be > 0.")
+        data: dict[str, Any] = {
+            "filename": filename,
+            "mime_type": mime_type,
+            "size_bytes": int(size_bytes),
+            "hash_sha256": hash_sha256,
+            "type": type,
+        }
+        return cast(
+            dict[str, Any],
+            self._request(
+                "POST",
+                f"/v1/runs/{int(run_id)}/results/{int(result_id)}/artifacts/presign",
+                json_body=data,
             ).json(),
         )
 
-    def get_presigned_upload_url(self, filename: str, content_type: str) -> dict[str, Any]:
-        """Get presigned URL for S3 upload."""
-        url = f"{self.base_url}/v1/attachments/presign"
-        payload = {"filename": filename, "content_type": content_type}
-        response = self._send_request("POST", url, data=payload)
-        return response.json()  # type: ignore[no-any-return]
+    def finalize_artifact(
+        self, run_id: int, result_id: int, artifact_id: int
+    ) -> tuple[int, dict[str, Any]]:
+        """Finalize an artifact. Returns (status_code, json_or_empty_dict)."""
+        response = self._request(
+            "POST",
+            f"/v1/runs/{int(run_id)}/results/{int(result_id)}/artifacts/{int(artifact_id)}/finalize",
+        )
+        try:
+            return response.status_code, cast(dict[str, Any], response.json())
+        except ValueError:
+            # .json() raises ValueError on invalid JSON across requests versions
+            return response.status_code, {}
 
-    def confirm_attachment_upload(self, attachment_id: str, result_id: int) -> dict[str, Any]:
-        """Confirm attachment was uploaded and link to result."""
-        url = f"{self.base_url}/v1/attachments/{attachment_id}/confirm"
-        payload = {"result_id": result_id}
-        response = self._send_request("POST", url, data=payload)
-        return response.json()  # type: ignore[no-any-return]
-
-    def upload_attachment_s3(
+    # ============================ Convenience =========================
+    def upload_artifact(
         self,
+        run_id: int,
         result_id: int,
-        file_name: str,
-        file_path: str | Path,
-        content_type: str,
+        *,
+        file: str | Path | bytes | bytearray | memoryview | IO[bytes],
+        filename: str | None = None,
+        mime_type: str | None = None,
+        type: ArtifactType | int = ArtifactType.OTHER,
     ) -> dict[str, Any]:
-        """Upload attachment using new S3 presigned URL workflow."""
-        try:
-            # 1. Get presigned URL
-            presign_resp = self.get_presigned_upload_url(
-                filename=file_name, content_type=content_type
-            )
+        """Upload an artifact by auto-computing size, MIME type, and SHA-256.
 
-            # 2. Upload to S3
-            upload_url = presign_resp["upload_url"]
-            with open(file_path, "rb") as f:
-                upload_response = requests.put(upload_url, data=f.read())
-                upload_response.raise_for_status()
+        - `file`: path, bytes-like, or binary stream. If a path is provided and
+          `filename` is omitted, the basename of the path is used.
+        - `filename`: optional; required when `file` is not a path to help guess MIME.
+        - `mime_type`: optional; if omitted, guessed from `filename`.
+        - `type`: artifact type enum or int.
+        """
+        # Determine filename
+        inferred_filename: str | None = None
+        if isinstance(file, str | Path):
+            inferred_filename = Path(file).name
+        final_filename = filename or inferred_filename
+        if not final_filename:
+            raise ValueError("'filename' is required when 'file' is not a path")
 
-            # 3. Confirm upload
-            attachment_id = presign_resp["attachment_id"]
-            return self.confirm_attachment_upload(attachment_id, result_id)
+        # Guess MIME type if not provided
+        final_mime = mime_type or (
+            mimetypes.guess_type(final_filename)[0] or "application/octet-stream"
+        )
 
-        except Exception as e:
-            logger.error(f"Failed to upload attachment {file_name}: {e}")
-            raise
+        # Compute size and sha256
+        if isinstance(file, str | Path):
+            path = Path(file)
+            if not path.exists():
+                raise FileNotFoundError(f"File not found: {path}")
+            size_bytes = int(path.stat().st_size)
+            sha256 = hashlib.sha256()
+            with path.open("rb") as f:
+                for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                    sha256.update(chunk)
+            digest = sha256.hexdigest()
+            source_for_upload: Any = path
+        elif isinstance(file, bytes | bytearray | memoryview):
+            buf = bytes(file)
+            size_bytes = len(buf)
+            digest = hashlib.sha256(buf).hexdigest()
+            source_for_upload = buf
+        else:
+            # file-like stream
+            stream: IO[bytes] = file
+            # If seekable, preserve position
+            pos = None
+            try:
+                pos = stream.tell()
+            except Exception:
+                pos = None
+            sha256 = hashlib.sha256()
+            total = 0
+            # Read and hash
+            while True:
+                chunk = stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                sha256.update(chunk)
+            digest = sha256.hexdigest()
+            size_bytes = total
+            # Reset stream if possible, else fallback to bytes
+            try:
+                if pos is not None:
+                    stream.seek(pos)
+                    source_for_upload = stream
+                else:
+                    # Build bytes to upload
+                    raise Exception("non-seekable stream")
+            except Exception as err:
+                # We already consumed; re-materialize into memory once
+                # Note: caller should prefer seekable streams for large files
+                data_bytes = getattr(stream, "getvalue", lambda: None)()
+                if data_bytes is None:
+                    # As a last resort, cannot recover; instruct caller
+                    raise ValueError(
+                        "Non-seekable stream provided; pass bytes or a seekable stream."
+                    ) from err
+                source_for_upload = data_bytes
 
-    def batch_update_results(self, run_id: int, updates: list[dict[str, Any]]) -> dict[str, Any]:
-        """Batch update multiple results (future feature)."""
-        url = f"/v1/runs/{run_id}/results/batch"
-        payload = {"updates": updates}
-        response = self._send_request("PATCH", url, data=payload)
-        return response.json()  # type: ignore[no-any-return]
+        return self.upload_artifact_file(
+            run_id,
+            result_id,
+            file=source_for_upload,
+            filename=final_filename,
+            mime_type=final_mime,
+            size_bytes=size_bytes,
+            hash_sha256=digest,
+            type=type,
+        )
 
-    # ========== Utility Methods ==========
-
-    @staticmethod
-    def join_url(*args: str) -> str:
-        """Join multiple URL components."""
-        if len(args) == 0:
-            return ""
-        if len(args) == 1:
-            return args[0]
-
-        base = args[0]
-        for path in args[1:]:
-            base = urllib.parse.urljoin(base, path)
-        return base
-
-    def _send_request(
+    def upload_artifact_file(
         self,
-        method: Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
-        url: str,
-        data: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
-        files: list[Any] | None = None,
-        **kwargs: Any,
-    ) -> requests.Response:
-        """Send HTTP request with proper error handling."""
-        full_url = self.join_url(self.base_url, url)
+        run_id: int,
+        result_id: int,
+        *,
+        file: str | Path | bytes | bytearray | memoryview | IO[bytes],
+        filename: str,
+        mime_type: str,
+        size_bytes: int,
+        hash_sha256: str,
+        type: ArtifactType | int = ArtifactType.OTHER,
+    ) -> dict[str, Any]:
+        """Convenience helper: presign, upload with required headers, finalize.
 
-        # Prepare headers
-        request_headers = self.HEADERS.copy()
-        if headers is not None:
-            request_headers.update(headers)
-        auth_header = self.session.headers.get("Authorization", "")
-        if isinstance(auth_header, str):
-            request_headers.update({"Authorization": auth_header})
+        The `file` parameter can be:
+        - a path (`str` or `Path`) to read from disk,
+        - a bytes-like object (`bytes`, `bytearray`, `memoryview`), or
+        - a binary stream (`IO[bytes]`, e.g., `io.BytesIO`).
 
-        # Prepare data
-        json_data = None
-        if data and not files:
-            json_data = json.dumps(data, cls=ProofyDataEncoder)
+        Returns a dict with keys: `artifact_id`, `status_code`, and (optionally) `finalize`.
+        """
+        presign = self.presign_artifact(
+            run_id,
+            result_id,
+            filename=filename,
+            mime_type=mime_type,
+            size_bytes=size_bytes,
+            hash_sha256=hash_sha256,
+            type=type,
+        )
 
-        try:
-            response = requests.request(
-                method=method,
-                url=full_url,
-                data=json_data if json_data else None,
-                json=data if not json_data and not files else None,
-                headers=request_headers,
-                files=files,
-                timeout=self.timeout_s,
-                **kwargs,
-            )
-            response.raise_for_status()
-            return response
+        upload_info = cast(dict[str, Any], presign.get("upload", {}))
+        method = upload_info.get("method", "PUT")
+        url = upload_info.get("url")
+        headers = cast(Mapping[str, str], upload_info.get("headers", {}))
+        if method != "PUT" or not url:
+            raise ValueError("Invalid presign response: missing PUT upload URL.")
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error sending request to Proofy API: {e}")
-            if hasattr(e, "response") and e.response is not None:
-                content = e.response.content
-                if isinstance(content, bytes):
-                    content = content.decode("utf-8", errors="replace")
-                logger.error(f"Response content: {content}")
-            raise
+        # Upload based on the type of `file`
+        if isinstance(file, bytes | bytearray | memoryview):
+            put_resp = requests.put(url, data=file, headers=dict(headers))
+            put_resp.raise_for_status()
+        elif isinstance(file, str | Path):
+            with open(Path(file), "rb") as f:
+                put_resp = requests.put(url, data=f, headers=dict(headers))
+                put_resp.raise_for_status()
+        else:
+            # Assume file-like binary stream
+            put_resp = requests.put(url, data=file, headers=dict(headers))
+            put_resp.raise_for_status()
 
-    def _outcome_to_status(self, outcome: str | None) -> ResultStatus:
-        """Convert outcome string to ResultStatus enum."""
-        if not outcome:
-            return ResultStatus.IN_PROGRESS
-
-        mapping = {
-            "passed": ResultStatus.PASSED,
-            "failed": ResultStatus.FAILED,
-            "error": ResultStatus.BROKEN,
-            "skipped": ResultStatus.SKIPPED,
+        artifact_id = cast(int, presign.get("artifact_id"))
+        status_code, finalize_json = self.finalize_artifact(run_id, result_id, artifact_id)
+        return {
+            "artifact_id": artifact_id,
+            "status_code": status_code,
+            "finalize": finalize_json,
         }
-        return mapping.get(outcome.lower(), ResultStatus.IN_PROGRESS)
