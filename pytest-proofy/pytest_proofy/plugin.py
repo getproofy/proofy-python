@@ -259,7 +259,6 @@ def pytest_configure(config: pytest.Config) -> None:
     pm.register(_proofy_hooks_instance, "pytest_proofy_hooks")
 
     proofy_config = resolve_options(config)
-    print(f"Proofy config: {proofy_config}")
 
     _plugin_instance = ProofyPytestPlugin(proofy_config)
     config._proofy = _plugin_instance

@@ -145,7 +145,7 @@ class ArtifactUploader:
                 result_id=result.result_id,
                 file=data_bytes,
                 filename=filename,
-                mime_type="text/plain; charset=utf-8",
+                mime_type="text/plain",
                 type=ArtifactType.TRACE,
             )
         except Exception as e:
