@@ -80,7 +80,9 @@ class ProofyPytestPlugin:
     def _get_test_path(self, item: pytest.Item) -> Path:
         """Get relative path for test."""
         try:
-            root = getattr(item.config, "rootpath", None) or getattr(item.config, "rootdir", None)
+            root = getattr(item.config, "rootpath", None) or getattr(
+                item.config, "rootdir", None
+            )
             if root:
                 return Path(item.fspath).relative_to(Path(root))
         except Exception:
@@ -101,7 +103,11 @@ class ProofyPytestPlugin:
         attributes = {}
         for mark in item.iter_markers(name="proofy_attributes"):
             attributes.update(
-                {key: value for key, value in mark.kwargs.items() if key not in attributes}
+                {
+                    key: value
+                    for key, value in mark.kwargs.items()
+                    if key not in attributes
+                }
             )
         return attributes
 
@@ -157,37 +163,17 @@ class ProofyPytestPlugin:
         report: TestReport = outcome.get_result()  # type: ignore[attr-defined]
 
         status = self._outcome_to_status(report.outcome)
-        result: TestResult | None = self.results_handler.get_result(self._get_test_id(item))
+        result: TestResult | None = self.results_handler.get_result(
+            self._get_test_id(item)
+        )
 
         # Create result if not exists yet
         if not result:
-            try:
-                attributes = self._get_attributes(item)
-                tags = attributes.pop("tags", [])
-
-                parameters = item.callspec.params if hasattr(item, "callspec") else {}
-
-                result = TestResult(
-                    id=self._get_test_id(item),
-                    name=self._get_test_name(item),
-                    path=self._get_path(item),
-                    test_path=self._get_test_path(item).as_posix(),
-                    status=ResultStatus.IN_PROGRESS,
-                    started_at=self._start_time
-                    or datetime.fromtimestamp(report.stop, timezone.utc),
-                    attributes=attributes,
-                    tags=tags,
-                    parameters=parameters,
-                )
-                self.results_handler.on_test_started(result=result)
-            except Exception as e:
-                self._terminal_summary += (
-                    f"Could not create result for test {self._get_test_id(item)}: {e}\n"
-                )
-                return
+            raise RuntimeError(f"Result not found for test {self._get_test_id(item)}")
 
         if report.failed and getattr(call, "excinfo", None) is not None:
             result.message = call.excinfo.exconly()
+            # TODO: handle multiple lines in traceback, add report.when to traceback
             result.traceback = report.longreprtext
 
             if status != ResultStatus.SKIPPED and not isinstance(
@@ -200,11 +186,14 @@ class ProofyPytestPlugin:
 
         if report.when == "call" and result.status == ResultStatus.PASSED:
             result.status = status
+            result.outcome = report.outcome
 
         if report.when == "teardown":
             end_time = datetime.now(timezone.utc)
             result.ended_at = end_time
-            result.duration_ms = int((end_time - result.started_at).total_seconds() * 1000)
+            result.duration_ms = int(
+                (end_time - result.started_at).total_seconds() * 1000
+            )
             if (
                 status in (ResultStatus.FAILED, ResultStatus.BROKEN)
                 and result.status == ResultStatus.PASSED
@@ -280,6 +269,7 @@ def pytest_configure(config: pytest.Config) -> None:
     pm.register(_proofy_hooks_instance, "pytest_proofy_hooks")
 
     proofy_config = resolve_options(config)
+    print(f"Proofy config: {proofy_config}")
 
     _plugin_instance = ProofyPytestPlugin(proofy_config)
     config._proofy = _plugin_instance
@@ -292,6 +282,8 @@ def pytest_configure(config: pytest.Config) -> None:
             os.environ.setdefault("PROOFY_MODE", proofy_config.mode)
         if proofy_config.output_dir:
             os.environ.setdefault("PROOFY_OUTPUT_DIR", proofy_config.output_dir)
+        if proofy_config.batch_size:
+            os.environ.setdefault("PROOFY_BATCH_SIZE", str(proofy_config.batch_size))
     except Exception:
         pass
 

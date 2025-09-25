@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+from proofy._impl.hooks import get_plugin_manager, reset_plugin_manager
+from pytest_proofy.plugin import PytestProofyHooks
+
+
+def setup_function() -> None:
+    # Ensure clean pluggy manager between tests
+    reset_plugin_manager()
+
+
+def teardown_function() -> None:
+    reset_plugin_manager()
+
+
+def test_hookspecs_registered_on_manager_creation() -> None:
+    pm = get_plugin_manager()
+    # pluggy exposes registered hook names via .hook
+    assert hasattr(pm, "hook")
+    # Ensure our expected hooks exist
+    assert hasattr(pm.hook, "proofy_test_start")
+    assert hasattr(pm.hook, "proofy_test_finish")
+    assert hasattr(pm.hook, "proofy_mark_attributes")
+
+
+def test_register_pytest_hooks_and_call_mark_attributes() -> None:
+    pm = get_plugin_manager()
+    hooks_impl = PytestProofyHooks()
+    pm.register(hooks_impl, "pytest_proofy_hooks_test")
+
+    marker = pm.hook.proofy_mark_attributes(attributes={"k": "v"})
+    # pluggy returns a list of results (one per implementation)
+    assert isinstance(marker, list)
+    assert marker, "Expected at least one hook implementation result"
+    result = marker[0]
+    # The plugin returns a pytest mark object
+    assert hasattr(result, "name")
+    assert result.name == "proofy_attributes"
+
+
+def test_test_start_and_finish_hooks_are_callable() -> None:
+    pm = get_plugin_manager()
+    hooks_impl = PytestProofyHooks()
+    pm.register(hooks_impl, "pytest_proofy_hooks_test")
+
+    # proofy_test_start returns None; should call without exceptions
+    pm.hook.proofy_test_start(
+        test_id="node::id",
+        test_name="test_name",
+        test_path="tests/test_sample.py::test_name",
+        metadata=None,
+    )
+
+    # proofy_test_finish should accept a TestResult; import from commons
+    from proofy.core.models import ResultStatus, TestResult
+
+    tr = TestResult(
+        id="node::id",
+        name="test_name",
+        path="node::id",
+        test_path="tests/test_sample.py",
+        status=ResultStatus.PASSED,
+    )
+    pm.hook.proofy_test_finish(test_result=tr)

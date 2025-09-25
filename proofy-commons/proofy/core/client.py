@@ -8,7 +8,7 @@ import mimetypes
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from enum import Enum, IntEnum
+from enum import Enum
 from pathlib import Path
 from typing import IO, Any, Literal, cast
 
@@ -18,7 +18,7 @@ from .models import ResultStatus, RunStatus
 from .utils import format_datetime_rfc3339
 
 
-class ArtifactType(IntEnum):
+class ArtifactType(int, Enum):
     """Artifact type values per API.md."""
 
     TRACE = 1
@@ -47,7 +47,9 @@ class ProofyClient:
         "User-Agent": "proofy-python-0.1.0/client",
     }
 
-    def __init__(self, base_url: str, token: str | None = None, timeout_s: float = 10.0) -> None:
+    def __init__(
+        self, base_url: str, token: str | None = None, timeout_s: float = 10.0
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
         self.session = requests.Session()
@@ -75,7 +77,11 @@ class ProofyClient:
         return value
 
     def _url(self, path: str) -> str:
-        return f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
+        return (
+            f"{self.base_url}{path}"
+            if path.startswith("/")
+            else f"{self.base_url}/{path}"
+        )
 
     def _request(
         self,
@@ -90,7 +96,6 @@ class ProofyClient:
         if headers:
             merged_headers.update(headers)
         body = None if json_body is None else self._normalize(json_body)
-        print(f"Request: {method} {url} {body} {merged_headers} {self.timeout_s}")
         response = self.session.request(
             method=method,
             url=url,
@@ -151,7 +156,9 @@ class ProofyClient:
         if attributes:
             data["attributes"] = self._stringify_attributes(attributes)
 
-        return cast(dict[str, Any], self._request("POST", "/v1/runs", json_body=data).json())
+        return cast(
+            dict[str, Any], self._request("POST", "/v1/runs", json_body=data).json()
+        )
 
     def update_run(
         self,
@@ -221,7 +228,9 @@ class ProofyClient:
 
         return cast(
             dict[str, Any],
-            self._request("POST", f"/v1/runs/{int(run_id)}/results", json_body=data).json(),
+            self._request(
+                "POST", f"/v1/runs/{int(run_id)}/results", json_body=data
+            ).json(),
         )
 
     def update_result(
@@ -456,7 +465,10 @@ class ProofyClient:
             put_resp.raise_for_status()
 
         artifact_id = cast(int, presign.get("artifact_id"))
-        status_code, finalize_json = self.finalize_artifact(run_id, result_id, artifact_id)
+
+        status_code, finalize_json = self.finalize_artifact(
+            run_id, result_id, artifact_id
+        )
         return {
             "artifact_id": artifact_id,
             "status_code": status_code,

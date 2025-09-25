@@ -67,7 +67,6 @@ def cache_attachment(src_path: str | Path) -> tuple[Path, int, str]:
     The destination filename is randomized and preserves the original extension.
     """
     source = Path(src_path)
-    print(f"Caching attachment from {source} to {ensure_cache_dir()}")
     cache_dir = ensure_cache_dir()
     extension = source.suffix
     dest_name = f"{uuid.uuid4().hex}{extension}"
