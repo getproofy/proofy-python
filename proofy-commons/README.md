@@ -123,7 +123,7 @@ class ProofyHookSpecs:
 
 ```bash
 git clone <repository>
-cd proofy-python-unified/proofy-commons
+cd proofy-python/proofy-commons
 uv venv .venv
 source .venv/bin/activate
 uv pip install -e '.[dev]'

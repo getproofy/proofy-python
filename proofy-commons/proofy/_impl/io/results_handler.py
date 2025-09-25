@@ -8,21 +8,19 @@ from __future__ import annotations
 
 import json
 import logging
-import mimetypes
 import os
 from pathlib import Path
 from typing import Any
 
-from ...core.client import ArtifactType, ProofyClient
+from ...core.client import ProofyClient
 from ...core.models import (
-    Attachment,
     ReportingStatus,
     RunStatus,
     TestResult,
 )
 from ...core.utils import now_rfc3339
 from ..context import get_context_service
-from ..export.attachments import is_cached_path
+from .artifact_uploader import ArtifactUploader
 
 logger = logging.getLogger("ProofyConductor")
 
@@ -47,6 +45,7 @@ class ResultsHandler:
         # In-process accumulation for lazy/batch
         self._batch_results: list[str] = []  # test IDs
         self.context = get_context_service()
+        self.artifacts = ArtifactUploader(client=self.client)
 
     def get_result(self, id: str) -> TestResult | None:
         return self.context.get_result(id)
@@ -85,7 +84,9 @@ class ResultsHandler:
                 )
                 run_id = response.get("id", None)
                 if not run_id:
-                    raise RuntimeError(f"'run_id' not found in response: {json.dumps(response)}")
+                    raise RuntimeError(
+                        f"'run_id' not found in response: {json.dumps(response)}"
+                    )
             except Exception as e:
                 logger.error(
                     f"Run {name!r} creation failed for project {self.project_id}: {e}",
@@ -182,7 +183,9 @@ class ResultsHandler:
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
             logger.error(f"Failed to send result for run {result.run_id}: {e}")
-            raise RuntimeError(f"Failed to send result for run {result.run_id}: {e}") from e
+            raise RuntimeError(
+                f"Failed to send result for run {result.run_id}: {e}"
+            ) from e
         else:
             result.reporting_status = ReportingStatus.FINISHED
             result.result_id = result_id
@@ -201,7 +204,9 @@ class ResultsHandler:
             )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
-            logger.error(f"Failed to update result {result.result_id} for run {result.run_id}: {e}")
+            logger.error(
+                f"Failed to update result {result.result_id} for run {result.run_id}: {e}"
+            )
             raise RuntimeError(
                 f"Failed to update result {result.result_id} for run {result.run_id}: {e}"
             ) from e
@@ -225,9 +230,9 @@ class ResultsHandler:
                 self.update_test_result(result)
 
                 # Upload attachments (best-effort)
-                self._upload_traceback(result)
+                self.artifacts.upload_traceback(result)
                 for attachment in result.attachments:
-                    self._upload_attachment(result, attachment)
+                    self.artifacts.upload_attachment(result, attachment)
 
             except Exception as e:
                 result.reporting_status = ReportingStatus.FAILED
@@ -252,12 +257,12 @@ class ResultsHandler:
             else:
                 result.reporting_status = ReportingStatus.FINISHED
                 try:
-                    self._upload_traceback(result)
+                    self.artifacts.upload_traceback(result)
                 except Exception as e:
                     logger.error(f"Failed to upload traceback in lazy mode: {e}")
                 for attachment in result.attachments:
                     try:
-                        self._upload_attachment(result, attachment)
+                        self.artifacts.upload_attachment(result, attachment)
                     except Exception as e:
                         logger.error(f"Failed to upload attachment in lazy mode: {e}")
                         raise e
@@ -266,7 +271,7 @@ class ResultsHandler:
         self._batch_results.append(result.id)
         self.context.finish_test(result=result)
         batch_size = os.environ.get("PROOFY_BATCH_SIZE", 100)
-        if len(self._batch_results) >= batch_size:
+        if len(self._batch_results) >= int(batch_size):
             self.send_batch()
 
     def send_batch(self) -> None:
@@ -282,12 +287,12 @@ class ResultsHandler:
             else:
                 result.reporting_status = ReportingStatus.FINISHED
                 try:
-                    self._upload_traceback(result)
+                    self.artifacts.upload_traceback(result)
                 except Exception as e:
                     logger.error(f"Failed to upload traceback in batch mode: {e}")
                 for attachment in result.attachments:
                     try:
-                        self._upload_attachment(result, attachment)
+                        self.artifacts.upload_attachment(result, attachment)
                     except Exception as e:
                         logger.error(f"Failed to upload attachment in batch mode: {e}")
         self._batch_results = []
@@ -301,127 +306,7 @@ class ResultsHandler:
             # live mode does not buffer; nothing to flush
             return None
 
-    def _upload_attachment(
-        self, result: TestResult, attachment: Attachment | dict[str, Any]
-    ) -> None:
-        try:
-            # Accept both dataclass Attachment and dict payloads
-            if isinstance(attachment, dict):
-                name = attachment.get("name") or attachment.get("filename")
-                path = attachment.get("path")
-                mime_type = attachment.get("mime_type")
-                size_bytes = attachment.get("size_bytes")
-                sha256 = attachment.get("_sha256") or attachment.get("sha256")
-                if not name or not path:
-                    raise ValueError("Attachment dict requires 'name' and 'path'.")
-            else:
-                if getattr(attachment, "remote_id", None):
-                    return
-                name = attachment.name
-                path = attachment.path
-                mime_type = attachment.mime_type
-                size_bytes = attachment.size_bytes
-                sha256 = attachment.sha256
-
-            guessed, _ = mimetypes.guess_type(path)
-            effective_mime = mime_type or guessed or "application/octet-stream"
-
-            if not result.run_id or not result.result_id:
-                raise RuntimeError("Cannot upload attachment without run_id and result_id.")
-
-            # Prefer fast path with known size/hash via high-level helper
-            if size_bytes is not None and sha256 is not None:
-                # Use direct file upload helper that accepts precomputed values
-                resp = self.client.upload_artifact_file(  # type: ignore[union-attr]
-                    run_id=result.run_id,
-                    result_id=result.result_id,
-                    file=path,
-                    filename=name,
-                    mime_type=effective_mime,
-                    size_bytes=int(size_bytes),
-                    hash_sha256=str(sha256),
-                    type=ArtifactType.ATTACHMENT,
-                )
-            else:
-                # Let client compute size/hash as needed
-                resp = self.client.upload_artifact(  # type: ignore[union-attr]
-                    run_id=result.run_id,
-                    result_id=result.result_id,
-                    filename=name,
-                    mime_type=effective_mime,
-                    file=path,
-                    type=ArtifactType.ATTACHMENT,
-                )
-
-            # Optionally record remote id when available
-            artifact_id = (resp or {}).get("artifact_id")
-            if (
-                artifact_id
-                and not isinstance(attachment, dict)
-                and hasattr(attachment, "remote_id")
-            ):
-                attachment.remote_id = str(artifact_id)
-
-            # If upload finalized successfully, remove cached file to free space
-            try:
-                success = False
-                if isinstance(resp, dict):
-                    status_code = resp.get("status_code")
-                    if (
-                        artifact_id
-                        or isinstance(status_code, int)
-                        and status_code
-                        in (
-                            200,
-                            201,
-                            204,
-                        )
-                    ):
-                        success = True
-                attach_path_str = path if isinstance(path, str) else str(path)
-                if success and is_cached_path(attach_path_str):
-                    Path(attach_path_str).unlink(missing_ok=True)
-            except Exception as del_err:
-                logger.warning(f"Failed to delete cached attachment {path}: {del_err}")
-
-        except Exception as e:
-            # Fall back to simple message; guard name access across dict
-            try:
-                at_name = attachment["name"] if isinstance(attachment, dict) else attachment.name
-            except Exception:
-                at_name = "<unknown>"
-            logger.error(f"Failed to upload attachment {at_name}: {e}")
-            raise e
-
-    def _upload_traceback(self, result: TestResult) -> None:
-        try:
-            if not self.client:
-                return
-            if not result.traceback:
-                return
-            if not result.run_id or not result.result_id:
-                return
-
-            base_name = result.name or result.path or result.id or "test"
-            safe_name = "".join(
-                c if (c.isalnum() or c in ("-", "_")) else "_" for c in str(base_name)
-            )
-            filename = f"{safe_name[:64]}-traceback.txt"
-
-            data_bytes = result.traceback.encode("utf-8", errors="replace")
-
-            self.client.upload_artifact(  # type: ignore[union-attr]
-                run_id=result.run_id,
-                result_id=result.result_id,
-                file=data_bytes,
-                filename=filename,
-                mime_type="text/plain; charset=utf-8",
-                type=ArtifactType.TRACE,
-            )
-        except Exception as e:
-            logger.error(
-                f"Failed to upload traceback for result {getattr(result, 'result_id', None)}: {e}"
-            )
+    # artifact upload methods moved to ArtifactUploader
 
     # --- Local backups ---
     def backup_results(self) -> None:

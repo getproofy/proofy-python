@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'  # Trigger on version tags like v1.0.0
+      - "v*" # Trigger on version tags like v1.0.0
 
 env:
   FORCE_COLOR: 1
@@ -54,6 +54,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e './proofy-commons[dev]'
           pip install -e './pytest-proofy[dev]'
+          pip install ruff
 
       - name: Run all tests
         run: |
@@ -104,8 +105,8 @@ jobs:
           # Update pytest-proofy version
           sed -i "s/version = \".*\"/version = \"$VERSION\"/" pytest-proofy/pyproject.toml
 
-          # Update pytest-proofy dependency on proofy-commons
-          sed -i "s/proofy-commons>=.*/proofy-commons>=$VERSION\"/" pytest-proofy/pyproject.toml
+          # Update pytest-proofy dependency on proofy
+          sed -i -E "s/\"proofy>=[^\"]+\"/\"proofy>=$VERSION\"/" pytest-proofy/pyproject.toml
 
       - name: Build proofy-commons
         run: |
@@ -141,7 +142,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for changelog
+          fetch-depth: 0 # Fetch all history for changelog
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -188,12 +189,12 @@ jobs:
     name: "Publish to PyPI"
     runs-on: ubuntu-latest
     needs: [validate-tag, create-release]
-    if: needs.validate-tag.outputs.is-prerelease == 'false'  # Only publish stable releases
+    if: needs.validate-tag.outputs.is-prerelease == 'false' # Only publish stable releases
     environment:
       name: pypi
-      url: https://pypi.org/project/proofy-commons/
+      url: https://pypi.org/project/proofy/
     permissions:
-      id-token: write  # For trusted publishing
+      id-token: write # For trusted publishing
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -215,12 +216,12 @@ jobs:
     name: "Publish to Test PyPI"
     runs-on: ubuntu-latest
     needs: [validate-tag, create-release]
-    if: needs.validate-tag.outputs.is-prerelease == 'true'  # Only publish pre-releases to test PyPI
+    if: needs.validate-tag.outputs.is-prerelease == 'true' # Only publish pre-releases to test PyPI
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/proofy-commons/
+      url: https://test.pypi.org/project/proofy/
     permissions:
-      id-token: write  # For trusted publishing
+      id-token: write # For trusted publishing
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -259,7 +260,7 @@ jobs:
           if [[ "${{ needs.validate-tag.outputs.is-prerelease }}" == "false" ]]; then
             if [[ "${{ needs.publish-to-pypi.result }}" == "success" ]]; then
               echo "✅ **PyPI**: Published successfully" >> $GITHUB_STEP_SUMMARY
-              echo "- [proofy-commons v$VERSION](https://pypi.org/project/proofy-commons/$VERSION/)" >> $GITHUB_STEP_SUMMARY
+              echo "- [proofy v$VERSION](https://pypi.org/project/proofy/$VERSION/)" >> $GITHUB_STEP_SUMMARY
               echo "- [pytest-proofy v$VERSION](https://pypi.org/project/pytest-proofy/$VERSION/)" >> $GITHUB_STEP_SUMMARY
             else
               echo "❌ **PyPI**: Publication failed" >> $GITHUB_STEP_SUMMARY
@@ -271,6 +272,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Installation" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "pip install proofy-commons==$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "pip install proofy==$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "pip install pytest-proofy==$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

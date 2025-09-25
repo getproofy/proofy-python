@@ -12,7 +12,7 @@ A framework for integrating Proofy test reporting with multiple Python testing f
 ## Architecture
 
 ```
-proofy-python-unified/
+proofy-python/
 ├── proofy-commons/             # Shared components
 │   ├── proofy/
 │   │   ├── core/               # Public API facade, client, models, decorators
@@ -129,7 +129,7 @@ def test_user_login():
 
 ```bash
 git clone <repository>
-cd proofy-python-unified
+cd proofy-python
 
 # Using uv (recommended)
 uv venv .venv

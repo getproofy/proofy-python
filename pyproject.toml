@@ -1,7 +1,7 @@
 [project]
 name = "proofy-python"
 version = "0.1.0"
-description = "Unified Proofy framework for multiple Python testing frameworks"
+description = "Proofy framework for multiple Python testing frameworks"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
