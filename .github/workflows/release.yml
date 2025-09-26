@@ -180,32 +180,32 @@ jobs:
             dist/proofy-commons/dist/*
             dist/pytest-proofy/dist/*
 
-  # publish-to-pypi:
-  #   name: "Publish to PyPI"
-  #   runs-on: ubuntu-latest
-  #   needs: [validate-tag, create-release]
-  #   if: needs.validate-tag.outputs.is-prerelease == 'false' # Only publish stable releases
-  #   environment:
-  #     name: pypi
-  #     url: https://pypi.org/project/proofy/
-  #   permissions:
-  #     id-token: write # For trusted publishing
-  #   steps:
-  #     - name: Download build artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: dist-packages
-  #         path: dist/
+  publish-to-pypi:
+    name: "Publish to PyPI"
+    runs-on: ubuntu-latest
+    needs: [validate-tag, create-release]
+    if: needs.validate-tag.outputs.is-prerelease == 'false' # Only publish stable releases
+    environment:
+      name: pypi
+      url: https://pypi.org/project/proofy/
+    permissions:
+      id-token: write # For trusted publishing
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
 
-  #     - name: Publish proofy-commons to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
-  #       with:
-  #         packages-dir: dist/proofy-commons/dist/
+      - name: Publish proofy-commons to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/proofy-commons/dist/
 
-  #     - name: Publish pytest-proofy to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
-  #       with:
-  #         packages-dir: dist/pytest-proofy/dist/
+      - name: Publish pytest-proofy to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/pytest-proofy/dist/
 
   publish-to-test-pypi:
     name: "Publish to Test PyPI"
@@ -230,16 +230,24 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/proofy-commons/dist/
 
+      - name: Wait for proofy-commons to be available
+        run: |
+          echo "Waiting for proofy-commons to be available on Test PyPI..."
+          sleep 30
+          # Verify the package is available
+          curl -f "https://test.pypi.org/pypi/proofy/json" || exit 1
+
       - name: Publish pytest-proofy to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/pytest-proofy/dist/
+          verbose: true
 
   post-release:
     name: "Post Release Tasks"
     runs-on: ubuntu-latest
-    needs: [validate-tag, create-release]
+    needs: [validate-tag, create-release, publish-to-pypi]
     if: always() && needs.create-release.result == 'success'
     steps:
       - name: Checkout code
@@ -253,13 +261,13 @@ jobs:
           echo "✅ **GitHub Release**: Created successfully" >> $GITHUB_STEP_SUMMARY
 
           if [[ "${{ needs.validate-tag.outputs.is-prerelease }}" == "false" ]]; then
-            # if [[ "${{ needs.publish-to-pypi.result }}" == "success" ]]; then
-            #   echo "✅ **PyPI**: Published successfully" >> $GITHUB_STEP_SUMMARY
-            #   echo "- [proofy v$VERSION](https://pypi.org/project/proofy/$VERSION/)" >> $GITHUB_STEP_SUMMARY
-            #   echo "- [pytest-proofy v$VERSION](https://pypi.org/project/pytest-proofy/$VERSION/)" >> $GITHUB_STEP_SUMMARY
-            # else
-            #   echo "❌ **PyPI**: Publication failed" >> $GITHUB_STEP_SUMMARY
-            # fi
+            if [[ "${{ needs.publish-to-pypi.result }}" == "success" ]]; then
+              echo "✅ **PyPI**: Published successfully" >> $GITHUB_STEP_SUMMARY
+              echo "- [proofy v$VERSION](https://pypi.org/project/proofy/$VERSION/)" >> $GITHUB_STEP_SUMMARY
+              echo "- [pytest-proofy v$VERSION](https://pypi.org/project/pytest-proofy/$VERSION/)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **PyPI**: Publication failed" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "ℹ️ **Pre-release**: Published to Test PyPI only" >> $GITHUB_STEP_SUMMARY
           fi

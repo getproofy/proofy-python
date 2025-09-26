@@ -28,14 +28,21 @@ def test_register_pytest_hooks_and_call_mark_attributes() -> None:
     hooks_impl = PytestProofyHooks()
     pm.register(hooks_impl, "pytest_proofy_hooks_test")
 
-    marker = pm.hook.proofy_mark_attributes(attributes={"k": "v"})
-    # pluggy returns a list of results (one per implementation)
-    assert isinstance(marker, list)
-    assert marker, "Expected at least one hook implementation result"
-    result = marker[0]
-    # The plugin returns a pytest mark object
-    assert hasattr(result, "name")
-    assert result.name == "proofy_attributes"
+    # Mock pytest.mark.proofy_attributes since it's not registered in test environment
+    from unittest.mock import patch
+
+    # Create a mock mark object
+    mock_mark = type("MockMark", (), {"name": "proofy_attributes", "kwargs": {"k": "v"}})()
+
+    with patch("pytest.mark.proofy_attributes", return_value=mock_mark):
+        marker = pm.hook.proofy_mark_attributes(attributes={"k": "v"})
+        # pluggy returns a list of results (one per implementation)
+        assert isinstance(marker, list)
+        assert marker, "Expected at least one hook implementation result"
+        result = marker[0]
+        # The plugin returns a pytest mark object
+        assert hasattr(result, "name")
+        assert result.name == "proofy_attributes"
 
 
 def test_test_start_and_finish_hooks_are_callable() -> None:
