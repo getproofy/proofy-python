@@ -26,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "pytest>=7.0.0",
-    "proofy>=0.1.0",
+    "proofy-python>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -96,7 +96,7 @@ module = "proofy.*"
 ignore_missing_imports = true
 
 [tool.uv.sources]
-proofy = { path = "../proofy-commons" }
+proofy-python = { path = "../proofy-commons" }
 
 [project.entry-points.pytest11]
 proofy = "pytest_proofy.plugin"
