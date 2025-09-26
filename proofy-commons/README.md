@@ -98,25 +98,6 @@ def add_attachment(
 ) -> None
 ```
 
-### Hook Specifications
-
-```python
-class ProofyHookSpecs:
-    @hookspec
-    def proofy_test_start(self, test_id: str, test_name: str, test_path: str) -> None
-
-    @hookspec
-    def proofy_test_finish(self, test_result: TestResult) -> None
-
-    @hookspec
-    def proofy_add_attachment(self, test_id: str, file_path: str, name: str) -> None
-
-    @hookspec
-    def proofy_add_attributes(self, test_id: Optional[str], attributes: Dict[str, Any]) -> None
-
-    # ... and many more
-```
-
 ## Development
 
 ### Setup

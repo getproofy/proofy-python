@@ -261,31 +261,6 @@ def test_create_user_api():
     assert response.status_code == 201
 ```
 
-## Hook System Integration
-
-Create custom plugins using the hook system:
-
-```python
-from proofy import hookimpl, get_plugin_manager
-
-class CustomProofyPlugin:
-    @hookimpl
-    def proofy_test_start(self, test_id, test_name, test_path):
-        print(f"Starting test: {test_name}")
-
-    @hookimpl
-    def proofy_test_finish(self, test_result):
-        if test_result.outcome == "failed":
-            print(f"Test failed: {test_result.name}")
-
-    @hookimpl
-    def proofy_add_attachment(self, test_id, file_path, name, mime_type):
-        print(f"Attachment added: {name}")
-
-# Register the plugin
-pm = get_plugin_manager()
-pm.register_plugin(CustomProofyPlugin())
-```
 
 ## Troubleshooting
 
@@ -327,14 +302,6 @@ Always create local backups:
 pytest --proofy-always-backup --proofy-output-dir ./test-results
 ```
 
-## API Compatibility
-
-This plugin is compatible with Proofy API v1:
-
-- **POST /v1/runs** - Create test runs
-- **PATCH /v1/runs/{run_id}** - Update runs
-- **POST /v1/runs/{run_id}/results** - Create test results
-- **PATCH /v1/runs/{run_id}/results/{result_id}** - Update results
 
 Status mappings:
 
