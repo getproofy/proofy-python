@@ -91,7 +91,6 @@ class ArtifactUploader:
             ):
                 attachment.remote_id = str(artifact_id)  # type: ignore[attr-defined]
 
-            # If upload finalized successfully, remove cached file to free space
             try:
                 success = False
                 if isinstance(resp, dict):
@@ -110,17 +109,11 @@ class ArtifactUploader:
                 attach_path_str = path if isinstance(path, str) else str(path)
                 if success and is_cached_path(attach_path_str):
                     Path(attach_path_str).unlink(missing_ok=True)
-            except Exception as del_err:
-                logger.warning(f"Failed to delete cached attachment {path}: {del_err}")
-
-        except Exception as e:
-            # Fall back to simple message; guard name access across dict
-            try:
-                at_name = attachment["name"] if isinstance(attachment, dict) else attachment.name
             except Exception:
-                at_name = "<unknown>"
-            logger.error(f"Failed to upload attachment {at_name}: {e}")
-            raise e
+                pass
+
+        except Exception:
+            raise
 
     def upload_traceback(self, result: TestResult) -> None:
         """Upload a textual traceback for a failed test, if any."""
@@ -148,7 +141,5 @@ class ArtifactUploader:
                 mime_type="text/plain",
                 type=ArtifactType.TRACE,
             )
-        except Exception as e:
-            logger.error(
-                f"Failed to upload traceback for result {getattr(result, 'result_id', None)}: {e}"
-            )
+        except Exception:
+            raise

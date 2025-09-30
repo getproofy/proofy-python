@@ -306,7 +306,6 @@ class ProofyClient:
         try:
             return response.status_code, cast(dict[str, Any], response.json())
         except ValueError:
-            # .json() raises ValueError on invalid JSON across requests versions
             return response.status_code, {}
 
     # ============================ Convenience =========================

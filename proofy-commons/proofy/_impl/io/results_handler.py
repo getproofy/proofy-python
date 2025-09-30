@@ -114,7 +114,7 @@ class ResultsHandler:
         try:
             self.flush_results()
         except Exception as e:
-            logger.exception(f"Failed to flush results: {e}")
+            logger.error(f"Failed to flush results: {e}")
         try:
             self.client.update_run(
                 run_id=run_id,
@@ -143,8 +143,7 @@ class ResultsHandler:
             try:
                 self._store_result_live(result)
             except Exception as e:
-                logger.exception(f"Failed to create result for live mode: {e}")
-                # raise RuntimeError(f"Failed to create result for live mode: {e}")
+                logger.error(f"Failed to create result for live mode: {e}")
         finally:
             self.context.start_test(result=result)
 
@@ -180,7 +179,6 @@ class ResultsHandler:
                 )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
-            logger.error(f"Failed to send result for run {result.run_id}: {e}")
             raise RuntimeError(f"Failed to send result for run {result.run_id}: {e}") from e
         else:
             result.reporting_status = ReportingStatus.FINISHED
@@ -200,7 +198,6 @@ class ResultsHandler:
             )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
-            logger.error(f"Failed to update result {result.result_id} for run {result.run_id}: {e}")
             raise RuntimeError(
                 f"Failed to update result {result.result_id} for run {result.run_id}: {e}"
             ) from e
@@ -214,7 +211,7 @@ class ResultsHandler:
                 result.result_id = result_id
                 result.reporting_status = ReportingStatus.INITIALIZED
             except Exception as e:
-                logger.exception(f"Failed to send result in live mode: {e}")
+                logger.error(f"Failed to send result in live mode: {e}")
                 raise RuntimeError(f"Failed to send result in live mode: {e}") from e
             return None
 
@@ -223,14 +220,13 @@ class ResultsHandler:
             try:
                 self.update_test_result(result)
 
-                # Upload attachments (best-effort)
                 self.artifacts.upload_traceback(result)
                 for attachment in result.attachments:
                     self.artifacts.upload_attachment(result, attachment)
 
             except Exception as e:
                 result.reporting_status = ReportingStatus.FAILED
-                logger.exception(f"Failed to send result in live mode: {e}")
+                logger.error(f"Failed to send result in live mode: {e}")
                 raise RuntimeError(f"Failed to send result in live mode: {e}") from e
             else:
                 result.reporting_status = ReportingStatus.FINISHED
@@ -259,7 +255,6 @@ class ResultsHandler:
                         self.artifacts.upload_attachment(result, attachment)
                     except Exception as e:
                         logger.error(f"Failed to upload attachment in lazy mode: {e}")
-                        raise e
 
     def _store_result_batch(self, result: TestResult) -> None:
         self._batch_results.append(result.id)
