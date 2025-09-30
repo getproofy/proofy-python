@@ -2,10 +2,31 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 Mode = Literal["live", "batch", "lazy"]
+
+
+@dataclass
+class WorkerConfig:
+    """Configuration for background worker pools."""
+
+    # Worker pool settings
+    max_workers: int = 4
+    max_attachment_workers: int = 8
+
+    # Timeout settings
+    task_timeout: float = 30.0
+    shutdown_timeout: float = 30.0
+
+    # Retry settings
+    retry_attempts: int = 3
+    retry_delay: float = 1.0
+
+    # Concurrency settings
+    max_concurrent_results: int = 10
+    max_concurrent_attachments: int = 20
 
 
 @dataclass
@@ -47,8 +68,16 @@ class ProofyConfig:
     max_retries: int = 3
     retry_delay: float = 1.0
 
+    # Background processing settings
+    enable_background_processing: bool = False
+    worker_config: WorkerConfig = field(default_factory=WorkerConfig)
+
+    # Enhanced batch settings
+    concurrent_attachment_uploads: bool = True
+
 
 __all__ = [
     "Mode",
+    "WorkerConfig",
     "ProofyConfig",
 ]

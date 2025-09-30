@@ -54,6 +54,9 @@ class ProofyPytestPlugin:
             mode=config.mode,
             output_dir=config.output_dir,
             project_id=config.project_id,
+            worker_config=config.worker_config,
+            enable_background_processing=config.enable_background_processing,
+            concurrent_attachment_uploads=config.concurrent_attachment_uploads,
         )
 
     def _get_test_id(self, item: pytest.Item) -> str:

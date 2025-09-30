@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 import pytest
-from proofy._impl.config import ProofyConfig
+from proofy._impl.config import ProofyConfig, WorkerConfig
 
 
 def register_options(parser: pytest.Parser) -> None:
@@ -90,6 +90,21 @@ def register_options(parser: pytest.Parser) -> None:
         help="Disable plugin hook system",
     )
 
+    # Background processing options
+    group.addoption(
+        "--proofy-boost",
+        action="store_true",
+        default=None,
+        help="Enable background processing for boosted result processing",
+    )
+    group.addoption(
+        "--proofy-max-workers",
+        action="store",
+        type=int,
+        default=None,
+        help="Maximum number of background worker threads (default: 4)",
+    )
+
 
 def resolve_options(config: pytest.Config) -> ProofyConfig:
     """Resolve Proofy configuration from CLI, environment, and pytest.ini.
@@ -147,6 +162,14 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
 
         return default
 
+    background_processing = get_option(
+        "proofy_boost",
+        "PROOFY_BOOST",
+        "proofy_boost",
+        False,
+        bool,
+    )
+
     # Resolve all configuration options
     return ProofyConfig(
         mode=get_option("proofy_mode", "PROOFY_MODE", "proofy_mode", "lazy"),
@@ -173,6 +196,26 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
         ),
         run_id=get_option("proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int),
         run_name=get_option("proofy_run_name", "PROOFY_RUN_NAME", "proofy_run_name"),
+        enable_background_processing=background_processing,
+        worker_config=WorkerConfig(
+            max_workers=get_option(
+                "proofy_max_workers",
+                "PROOFY_MAX_WORKERS",
+                "proofy_max_workers",
+                4,
+                int,
+            ),
+            # Attachment workers are automatically double the max workers
+            max_attachment_workers=get_option(
+                "proofy_max_workers",
+                "PROOFY_MAX_WORKERS",
+                "proofy_max_workers",
+                4,
+                int,
+            )
+            * 2,
+        ),
+        concurrent_attachment_uploads=background_processing,
     )
 
 
@@ -189,3 +232,11 @@ def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     parser.addini("proofy_run_name", "Test run name")
     parser.addini("proofy_disable_attachments", "Disable attachments", default="false")
     parser.addini("proofy_disable_hooks", "Disable hooks", default="false")
+
+    # Background processing options
+    parser.addini(
+        "proofy_boost",
+        "Enable background processing for boosted result processing",
+        default="false",
+    )
+    parser.addini("proofy_max_workers", "Maximum background workers", default="4")
