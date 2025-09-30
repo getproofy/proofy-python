@@ -97,7 +97,12 @@ class ProofyClient:
             headers=merged_headers,
             timeout=self.timeout_s,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise requests.exceptions.HTTPError(
+                f"HTTP {response.status_code} error: {e.response.text}"
+            ) from e
         return response
 
     @staticmethod
