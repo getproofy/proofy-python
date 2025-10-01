@@ -51,6 +51,7 @@ class Attachment:
     remote_id: str | None = None  # Server-assigned ID for uploaded attachments
     original_path: str | None = None
     sha256: str | None = None
+    artifact_type: int | None = None
 
 
 @dataclass

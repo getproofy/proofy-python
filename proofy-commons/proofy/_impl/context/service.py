@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import IO, Any
 
+from ...core.client import ArtifactType
 from ...core.models import Attachment, TestResult
 from ..export.attachments import (
     cache_attachment,
@@ -119,7 +120,7 @@ class ContextService:
         name: str,
         mime_type: str | None = None,
         extension: str | None = None,
-        try_immediate: bool | None = None,
+        artifact_type: ArtifactType | int = ArtifactType.ATTACHMENT,
     ) -> None:
         ctx = self.test_ctx
         if not ctx:
@@ -128,8 +129,7 @@ class ContextService:
         path_to_store: Path
         original_path_string: str
         mode = os.getenv("PROOFY_MODE", "").lower()
-        auto_live = try_immediate is None and mode == "live"
-        do_immediate = (try_immediate is True) or auto_live
+        do_immediate = mode == "live"
         cached_size: int | None = None
         cached_sha: str | None = None
 
@@ -194,5 +194,6 @@ class ContextService:
                 extension=extension,
                 size_bytes=cached_size,
                 sha256=cached_sha,
+                artifact_type=int(artifact_type),
             )
         )

@@ -42,6 +42,7 @@ class ArtifactUploader:
                 mime_type = attachment.get("mime_type")
                 size_bytes = attachment.get("size_bytes")
                 sha256 = attachment.get("_sha256") or attachment.get("sha256")
+                artifact_type_val = attachment.get("artifact_type")
                 if not name or not path:
                     raise ValueError("Attachment dict requires 'name' and 'path'.")
             else:
@@ -52,12 +53,21 @@ class ArtifactUploader:
                 mime_type = attachment.mime_type
                 size_bytes = attachment.size_bytes
                 sha256 = attachment.sha256
+                artifact_type_val = attachment.artifact_type
 
             guessed, _ = mimetypes.guess_type(path)
             effective_mime = mime_type or guessed or "application/octet-stream"
 
             if not result.run_id or not result.result_id:
                 raise RuntimeError("Cannot upload attachment without run_id and result_id.")
+
+            # Map provided artifact_type to enum or default ATTACHMENT
+            final_type: ArtifactType | int = (
+                ArtifactType(artifact_type_val)
+                if isinstance(artifact_type_val, int)
+                and artifact_type_val in {item.value for item in ArtifactType}
+                else ArtifactType.ATTACHMENT
+            )
 
             # Prefer fast path with known size/hash via high-level helper
             if size_bytes is not None and sha256 is not None:
@@ -69,7 +79,7 @@ class ArtifactUploader:
                     mime_type=effective_mime,
                     size_bytes=int(size_bytes),
                     hash_sha256=str(sha256),
-                    type=ArtifactType.ATTACHMENT,
+                    type=final_type,
                 )
             else:
                 # Let client compute size/hash as needed
@@ -79,7 +89,7 @@ class ArtifactUploader:
                     filename=name,
                     mime_type=effective_mime,
                     file=path,
-                    type=ArtifactType.ATTACHMENT,
+                    type=final_type,
                 )
 
             # Optionally record remote id when available
@@ -91,6 +101,7 @@ class ArtifactUploader:
             ):
                 attachment.remote_id = str(artifact_id)  # type: ignore[attr-defined]
 
+            # If upload finalized successfully, remove cached file to free space
             try:
                 success = False
                 if isinstance(resp, dict):

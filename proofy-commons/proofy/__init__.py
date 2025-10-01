@@ -16,6 +16,7 @@ from proofy.core.api import (
     set_severity,
     set_title,
 )
+from proofy.core.client import ArtifactType
 
 # Decorators
 from proofy.core.decorators import (
@@ -57,4 +58,5 @@ __all__ = [
     "severity",
     "tags",
     "attributes",
+    "ArtifactType",
 ]

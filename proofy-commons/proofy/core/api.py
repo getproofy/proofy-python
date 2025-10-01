@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 from .._impl.context import get_context_service
 from .._impl.context.models import SessionContext
+from .client import ArtifactType
 
 _context_service = get_context_service()
 
@@ -33,19 +34,19 @@ def set_title(title: str) -> None:
 
 
 def add_attachment(
-    file: str | Path,
+    file: str | Path | bytes | bytearray | IO[bytes],
     *,
     name: str,
     mime_type: str | None = None,
     extension: str | None = None,
-    try_immediate: bool | None = None,
+    artifact_type: ArtifactType | int = ArtifactType.ATTACHMENT,
 ) -> None:
     _context_service.attach(
         file,
         name=name,
         mime_type=mime_type,
         extension=extension,
-        try_immediate=try_immediate,
+        artifact_type=int(artifact_type),
     )
 
 
