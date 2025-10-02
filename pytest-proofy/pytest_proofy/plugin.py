@@ -64,10 +64,6 @@ class ProofyPytestPlugin:
 
     def _get_test_name(self, item: pytest.Item) -> str:
         """Get display name for test."""
-        name = self._get_attributes(item).get("name", None)
-        if name:
-            return name
-
         # Use class name if available
         if hasattr(item, "cls") and item.cls and item.name:
             return f"{item.cls.__name__}::{item.name}"
@@ -105,6 +101,33 @@ class ProofyPytestPlugin:
             )
         return attributes
 
+    def _get_markers(self, item: pytest.Item) -> list[dict[str, Any]]:
+        """Collect marker name and values, excluding internal proofy markers.
+
+        Returns a list of dicts with keys: name, args, kwargs.
+        Filters out markers whose names start with "__proofy_" and the
+        special configuration marker "proofy_attributes" (already processed).
+        """
+        try:
+            all_marks = list(item.iter_markers())
+        except Exception:
+            all_marks = []
+        collected: list[dict[str, Any]] = []
+        for m in all_marks:
+            name = getattr(m, "name", None)
+            if not isinstance(name, str):
+                continue
+            if name == "parametrize":  # ignore parametrize marker
+                continue
+            if name.startswith("__proofy_"):
+                continue
+            if name == "proofy_attributes":
+                continue
+            args = list(getattr(m, "args", []) or [])
+            kwargs = dict(getattr(m, "kwargs", {}) or {})
+            collected.append({"name": name, "args": args, "kwargs": kwargs})
+        return collected
+
     @pytest.hookimpl(tryfirst=True)
     def pytest_sessionstart(self, session: pytest.Session) -> None:
         """Called at the start of test session."""
@@ -129,13 +152,14 @@ class ProofyPytestPlugin:
         self._start_time = datetime.now(timezone.utc)
 
         attributes = self._get_attributes(item)
-        tags = attributes.pop("tags", [])
+        tags = attributes.pop("__proofy_tags", [])
+        display_name = attributes.pop("__proofy_name", None)
 
         parameters = item.callspec.params if hasattr(item, "callspec") else {}
 
         result = TestResult(
             id=self._get_test_id(item),
-            name=self._get_test_name(item),
+            name=display_name or self._get_test_name(item),
             path=self._get_path(item),
             test_path=self._get_test_path(item).as_posix(),
             status=ResultStatus.IN_PROGRESS,
@@ -144,6 +168,7 @@ class ProofyPytestPlugin:
             attributes=attributes,
             tags=tags,
             parameters=parameters,
+            markers=self._get_markers(item),
         )
         self.results_handler.on_test_started(result)
         yield

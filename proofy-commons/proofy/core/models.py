@@ -87,7 +87,7 @@ class TestResult:
 
     # Test context and metadata
     parameters: dict[str, Any] = field(default_factory=dict)
-    markers: list[str] = field(default_factory=list)
+    markers: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
     attributes: dict[str, Any] = field(default_factory=dict)
@@ -148,5 +148,8 @@ class TestResult:
 
         if self.parameters:
             merged.update({"__proofy_parameters": json.dumps(self.parameters)})
+
+        if self.markers:
+            merged.update({"__proofy_markers": json.dumps(self.markers)})
 
         return merged
