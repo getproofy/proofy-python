@@ -48,6 +48,9 @@ class ProofyConfig:
     max_retries: int = 3
     retry_delay: float = 1.0
 
+    # Upload settings
+    max_concurrent_uploads: int = 5
+
 
 __all__ = [
     "Mode",

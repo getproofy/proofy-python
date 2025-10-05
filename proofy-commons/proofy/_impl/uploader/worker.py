@@ -60,7 +60,7 @@ class WorkerMetrics:
                 if self.jobs_processed > 0
                 else 0
             ),
-            "throughput_jobs_per_sec": self.jobs_processed / elapsed if elapsed > 0 else 0,
+            "throughput_jobs_per_sec": (self.jobs_processed / elapsed if elapsed > 0 else 0),
             "throughput_mbps": (
                 (self.bytes_uploaded / (1024 * 1024)) / elapsed if elapsed > 0 else 0
             ),
@@ -72,7 +72,8 @@ class UploaderWorker:
     """Background worker that processes upload jobs using AsyncClient.
 
     This worker runs an asyncio event loop in a dedicated thread, consuming
-    jobs from a thread-safe queue and executing them asynchronously.
+    jobs from a thread-safe queue and executing them asynchronously with
+    configurable concurrency.
     """
 
     def __init__(
@@ -83,6 +84,7 @@ class UploaderWorker:
         timeout: float = 60.0,
         max_retries: int = 3,
         fail_open: bool = True,
+        max_concurrent_uploads: int = 5,
     ) -> None:
         """Initialize the uploader worker.
 
@@ -93,6 +95,7 @@ class UploaderWorker:
             timeout: Request timeout in seconds
             max_retries: Maximum retry attempts
             fail_open: If True, errors don't crash the worker
+            max_concurrent_uploads: Maximum number of concurrent upload operations
         """
         self.queue = queue
         self.base_url = base_url
@@ -100,6 +103,7 @@ class UploaderWorker:
         self.timeout = timeout
         self.max_retries = max_retries
         self.fail_open = fail_open
+        self.max_concurrent_uploads = max_concurrent_uploads
 
         self._thread: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -160,7 +164,7 @@ class UploaderWorker:
             self._loop = None
 
     async def _worker_loop(self) -> None:
-        """Main async worker loop that processes jobs."""
+        """Main async worker loop that processes jobs concurrently."""
         # Create async client
         self._client = AsyncClient(
             base_url=self.base_url,
@@ -169,24 +173,15 @@ class UploaderWorker:
             max_retries=self.max_retries,
         )
 
-        try:
-            while not self._stop_event.is_set():
-                # Get next job from queue (with timeout to check stop event)
-                try:
-                    job = await asyncio.get_event_loop().run_in_executor(
-                        None, self.queue.get, True, 0.5
-                    )
-                except Exception:
-                    # Timeout or queue empty, continue
-                    continue
+        # Semaphore to limit concurrent operations
+        semaphore = asyncio.Semaphore(self.max_concurrent_uploads)
 
-                # Check for stop sentinel
-                if isinstance(job, StopJob):
-                    logger.debug("Received stop job")
-                    self.queue.task_done()
-                    break
+        # Track active tasks
+        active_tasks: set[asyncio.Task] = set()
 
-                # Process job
+        async def process_job_with_semaphore(job: Any) -> None:
+            """Process a job with semaphore-limited concurrency."""
+            async with semaphore:
                 start_time = time.monotonic()
                 try:
                     bytes_uploaded = await self._process_job(job)
@@ -200,6 +195,55 @@ class UploaderWorker:
                         raise
                 finally:
                     self.queue.task_done()
+
+        try:
+            while not self._stop_event.is_set():
+                # Get next job from queue (with timeout to check stop event)
+                try:
+                    job = await asyncio.get_event_loop().run_in_executor(
+                        None, self.queue.get, True, 0.5
+                    )
+                except Exception:
+                    # Timeout or queue empty, check for completed tasks
+                    if active_tasks:
+                        done, active_tasks = await asyncio.wait(
+                            active_tasks,
+                            timeout=0.1,
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+                        # Handle any exceptions from completed tasks
+                        for task in done:
+                            try:
+                                task.result()
+                            except Exception:
+                                if not self.fail_open:
+                                    raise
+                    continue
+
+                # Check for stop sentinel
+                if isinstance(job, StopJob):
+                    logger.debug("Received stop job")
+                    self.queue.task_done()
+                    break
+
+                # Create task to process job concurrently
+                task = asyncio.create_task(process_job_with_semaphore(job))
+                active_tasks.add(task)
+
+                # Clean up completed tasks
+                done_tasks = {t for t in active_tasks if t.done()}
+                for task in done_tasks:
+                    active_tasks.remove(task)
+                    try:
+                        task.result()
+                    except Exception:
+                        if not self.fail_open:
+                            raise
+
+            # Wait for all active tasks to complete before shutting down
+            if active_tasks:
+                logger.info(f"Waiting for {len(active_tasks)} active tasks to complete...")
+                await asyncio.gather(*active_tasks, return_exceptions=self.fail_open)
 
         finally:
             # Close client

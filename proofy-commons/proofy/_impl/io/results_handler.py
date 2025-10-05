@@ -39,21 +39,36 @@ class ResultsHandler:
     def __init__(
         self,
         *,
-        client: Client | None,
-        mode: str,
-        output_dir: str,
-        project_id: int | None,
+        config: ProofyConfig,
         framework: str,
-        queue: UploadQueue | None = None,
-        worker: UploaderWorker | None = None,
     ) -> None:
-        self.client = client
-        self.mode = mode  # "live" | "lazy" | "batch"
-        self.output_dir = Path(output_dir)
-        self.project_id: int | None = project_id
+        self.config = config
+        self.mode = config.mode  # "live" | "lazy" | "batch"
+        self.output_dir = Path(config.output_dir)
+        self.project_id: int | None = config.project_id
         self.framework = framework
-        self.queue = queue
-        self.worker = worker
+
+        # Initialize client, queue, and worker if API configured
+        self.client: Client | None = None
+        self.queue: UploadQueue | None = None
+        self.worker: UploaderWorker | None = None
+
+        if config.api_base and config.token:
+            self.client = Client(
+                base_url=config.api_base, token=config.token, timeout=config.timeout_s
+            )
+            # Initialize upload queue and worker for async artifact uploads
+            self.queue = UploadQueue(maxsize=1000)
+            self.worker = UploaderWorker(
+                queue=self.queue,
+                base_url=config.api_base,
+                token=config.token,
+                timeout=config.timeout_s,
+                max_retries=3,
+                fail_open=True,
+                max_concurrent_uploads=config.max_concurrent_uploads,
+            )
+            self.worker.start()
 
         # In-process accumulation for lazy/batch
         self._batch_results: list[str] = []  # test IDs

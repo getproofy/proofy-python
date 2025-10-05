@@ -16,8 +16,6 @@ from proofy._impl.hooks.manager import reset_plugin_manager
 from proofy._impl.io.results_handler import ResultsHandler
 
 # Import from proofy-commons
-from proofy._impl.uploader import UploaderWorker, UploadQueue
-from proofy.core import Client
 from proofy.core.models import ResultStatus, TestResult
 from pytest import CallInfo
 
@@ -33,45 +31,17 @@ class ProofyPytestPlugin:
 
     def __init__(self, config: ProofyConfig):
         self.config = config
-        self.client: Client | None = None
         self.run_id: int | None = None
-        # Upload infrastructure
-        self.queue: UploadQueue | None = None
-        self.worker: UploaderWorker | None = None
-        # Results handler will be initialized after client is created
-        self.results_handler: ResultsHandler | None = None
 
         # Plugin state
         self._start_time: datetime | None = None
         self._num_deselected = 0
         self._terminal_summary = ""
 
-        # Initialize client and worker if API configured
-        if config.api_base and config.token:
-            self.client = Client(
-                base_url=config.api_base, token=config.token, timeout=config.timeout_s
-            )
-            # Initialize upload queue and worker for async artifact uploads
-            self.queue = UploadQueue(maxsize=1000)
-            self.worker = UploaderWorker(
-                queue=self.queue,
-                base_url=config.api_base,
-                token=config.token,
-                timeout=config.timeout_s,
-                max_retries=3,
-                fail_open=True,
-            )
-            self.worker.start()
-
-        # Initialize results handler (works without client as well)
+        # Initialize results handler
         self.results_handler = ResultsHandler(
-            client=self.client,
-            mode=config.mode,
-            output_dir=config.output_dir,
-            project_id=config.project_id,
+            config=config,
             framework="pytest",
-            queue=self.queue,
-            worker=self.worker,
         )
 
     def _get_test_id(self, item: pytest.Item) -> str:
@@ -157,7 +127,7 @@ class ProofyPytestPlugin:
         self.run_id = self.results_handler.start_run()
         self.config.run_id = self.run_id  # type: ignore[attr-defined]
 
-        if not self.run_id and self.client:
+        if not self.run_id and self.results_handler.client:
             raise RuntimeError("Run ID not found. Make sure to call start_run() first.")
 
     @pytest.hookimpl(hookwrapper=True)
