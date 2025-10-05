@@ -55,11 +55,8 @@ def should_retry(response: httpx.Response | None, exception: Exception | None) -
         # Retry on timeout and connection errors
         return isinstance(exception, httpx.TimeoutException | httpx.ConnectError | httpx.ReadError)
 
-    if response and (response.status_code == 429 or 500 <= response.status_code < 600):
-        # Retry on 429 (rate limit) and 5xx server errors
-        return True
-
-    return False
+    # Retry on 429 (rate limit) and 5xx server errors
+    return bool(response and (response.status_code == 429 or 500 <= response.status_code < 600))
 
 
 def get_retry_after(response: httpx.Response) -> float | None:
@@ -252,7 +249,7 @@ class Client:
     def health(self) -> str:
         """Check service health; returns the response text (expected: "ok")."""
         response = self._request("GET", "/health")
-        return response.text
+        return str(response.text)
 
     # ============================= Runs =============================
 
@@ -303,7 +300,7 @@ class Client:
             raise ValueError("No fields to update were provided.")
 
         response = self._request("PATCH", f"/v1/runs/{int(run_id)}", json_body=body)
-        return response.status_code
+        return int(response.status_code)
 
     # ============================ Results ============================
 
@@ -375,7 +372,7 @@ class Client:
         response = self._request(
             "PATCH", f"/v1/runs/{int(run_id)}/results/{int(result_id)}", json_body=body
         )
-        return response.status_code
+        return int(response.status_code)
 
     # ============================ Artifacts ===========================
 

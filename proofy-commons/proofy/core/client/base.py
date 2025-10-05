@@ -78,7 +78,7 @@ class ClientConfig:
 
     base_url: str
     token: str | None = None
-    timeout: httpx.Timeout = None  # type: ignore[assignment]
+    timeout: httpx.Timeout | None = None
     max_keepalive: int = 20
     max_connections: int = 100
     http2: bool = False  # Disabled by default (requires h2 package for http2=True)

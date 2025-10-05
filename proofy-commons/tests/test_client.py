@@ -139,9 +139,7 @@ def test_result_create_and_update():
     assert body["status"] == ResultStatus.PASSED.value
 
     # Proper update
-    respx.patch("https://api.example/v1/runs/10/results/77").mock(
-        return_value=httpx.Response(204)
-    )
+    respx.patch("https://api.example/v1/runs/10/results/77").mock(return_value=httpx.Response(204))
 
     code = client.update_result(
         10, 77, status=ResultStatus.PASSED, ended_at=datetime.now(timezone.utc)
@@ -237,9 +235,9 @@ def test_upload_artifact_path_auto_calculates_and_calls_presign(tmp_path):
     respx.put("https://up").mock(return_value=httpx.Response(200))
 
     # Mock finalize
-    respx.post(
-        "https://api.example/v1/runs/1/results/2/artifacts/7/finalize"
-    ).mock(return_value=httpx.Response(204, json={}))
+    respx.post("https://api.example/v1/runs/1/results/2/artifacts/7/finalize").mock(
+        return_value=httpx.Response(204, json={})
+    )
 
     out = client.upload_artifact(1, 2, file=str(p), type=ArtifactType.OTHER)
 
