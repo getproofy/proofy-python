@@ -48,13 +48,10 @@ pytest --proofy-api-base https://api.proofy.dev \
 # Run options
 --proofy-run-id ID                  # Existing run ID to append to
 --proofy-run-name NAME              # Custom run name
+--proofy-run-attributes ATTRS       # Custom run attributes (key=value,key2=value2)
 
 # Batch options
 --proofy-batch-size N               # Results per batch (default: 10)
-
-# Feature options
---proofy-disable-attachments        # Disable attachment processing
---proofy-disable-hooks              # Disable plugin hooks
 
 # Output options
 --proofy-output-dir DIR             # Local backup directory
@@ -80,6 +77,7 @@ proofy_token = your-token-here
 proofy_project_id = 123
 proofy_batch_size = 20
 proofy_output_dir = test-artifacts
+proofy_run_attributes = environment=staging,version=1.2.3
 ```
 
 ## Reporting Modes
@@ -122,6 +120,130 @@ pytest --proofy-mode batch --proofy-batch-size 50
 - Sends results in batches (during test ??)
 - Optimized for large test suites
 - Configurable batch size
+
+## Run Attributes
+
+Run attributes allow you to add metadata to your test runs, such as environment information, version numbers, and other custom data. Proofy automatically collects system information (Python version, OS, framework version) and allows you to add custom attributes.
+
+### Automatic System Attributes
+
+The following attributes are automatically collected for every run:
+
+- `__proofy_python_version` - Python version (e.g., "3.11.0")
+- `__proofy_platform` - Platform details (e.g., "macOS-14.0-arm64")
+- `__proofy_framework` - Test framework (e.g., "pytest")
+- `__proofy_framework_version` - Framework version (e.g., "7.4.0")
+
+### Adding Custom Run Attributes
+
+#### Via Command Line
+
+```bash
+pytest --proofy-run-attributes environment=production,version=1.2.3,branch=main
+```
+
+#### Via Environment Variable
+
+```bash
+export PROOFY_RUN_ATTRIBUTES="environment=staging,version=2.0.0"
+pytest
+```
+
+#### Via pytest.ini
+
+```ini
+[tool:pytest]
+proofy_run_attributes = environment=development,team=backend
+```
+
+#### Via conftest.py
+
+```python
+# conftest.py
+import proofy
+
+def pytest_configure(config):
+    """Set run attributes programmatically."""
+    # This runs after plugin initialization but before tests
+    pass
+
+def pytest_sessionstart(session):
+    """Set run attributes at session start."""
+    proofy.add_run_attributes(
+        environment="staging",
+        version="1.2.3",
+        build_number="456",
+        branch="feature/new-api"
+    )
+```
+
+#### Via Runtime API in Tests
+
+```python
+import proofy
+
+def test_example():
+    # You can also set run attributes from within tests
+    # (though this is less common - usually set at session start)
+    proofy.set_run_attribute("custom_key", "custom_value")
+    proofy.add_run_attributes(
+        environment="production",
+        region="us-east-1"
+    )
+
+    # Get all run attributes
+    attrs = proofy.get_run_attributes()
+    assert "environment" in attrs
+```
+
+### Common Use Cases
+
+#### CI/CD Integration
+
+```bash
+# Jenkins/GitHub Actions
+pytest \
+  --proofy-run-attributes \
+    "ci=true,\
+     build_id=${BUILD_ID},\
+     branch=${GIT_BRANCH},\
+     commit=${GIT_COMMIT},\
+     ci_job=${JOB_NAME}"
+```
+
+#### Environment-Specific Testing
+
+```python
+# conftest.py
+import os
+import proofy
+
+def pytest_sessionstart(session):
+    """Add environment-specific run attributes."""
+    proofy.add_run_attributes(
+        environment=os.getenv("TEST_ENV", "local"),
+        database_url=os.getenv("DATABASE_URL", "local"),
+        api_endpoint=os.getenv("API_ENDPOINT", "http://localhost"),
+        test_suite="regression"
+    )
+```
+
+#### Application Version Tracking
+
+```python
+# conftest.py
+import proofy
+
+def pytest_sessionstart(session):
+    """Track application version being tested."""
+    from myapp import __version__
+
+    proofy.add_run_attributes(
+        app_version=__version__,
+        tested_at=datetime.now().isoformat(),
+        tester=os.getenv("USER", "unknown")
+    )
+```
 
 ## Using Decorators and Runtime API
 
@@ -261,7 +383,6 @@ def test_create_user_api():
     assert response.status_code == 201
 ```
 
-
 ## Troubleshooting
 
 ### Common Issues
@@ -301,7 +422,6 @@ Always create local backups:
 ```bash
 pytest --proofy-always-backup --proofy-output-dir ./test-results
 ```
-
 
 Status mappings:
 

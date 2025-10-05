@@ -28,11 +28,6 @@ def set_name(name: str) -> None:
     _context_service.set_name(name)
 
 
-def set_title(title: str) -> None:
-    # Convenience alias matching decorator naming
-    _context_service.set_name(title)
-
-
 def add_attachment(
     file: str | Path | bytes | bytearray | IO[bytes],
     *,
@@ -80,16 +75,30 @@ def get_current_run_id() -> int | None:
     return sess.run_id if sess else None
 
 
+def set_run_attribute(key: str, value: Any) -> None:
+    _context_service.set_run_attribute(key, value)
+
+
+def add_run_attributes(**kwargs: Any) -> None:
+    _context_service.add_run_attributes(**kwargs)
+
+
+def get_run_attributes() -> dict[str, Any]:
+    return _context_service.get_run_attributes()
+
+
 __all__ = [
     "add_attachment",
     "add_attributes",
+    "add_run_attributes",
     "add_tag",
     "add_tags",
     "get_current_run_id",
     "get_current_test_id",
+    "get_run_attributes",
     "set_description",
     "set_name",
-    "set_title",
+    "set_run_attribute",
     "set_run_name",
     "set_severity",
 ]

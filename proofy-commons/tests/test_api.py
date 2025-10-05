@@ -31,14 +31,13 @@ def test_metadata_conveniences_and_getters(_fresh_service: ContextService):
     svc.start_test(tr)
 
     api.set_name("n1")
-    api.set_title("n2")
     api.set_description("desc")
     api.set_severity("critical")
     api.add_attributes(a=1)
     api.add_tag("x")
     api.add_tags(["x", "y"])  # dedupe behavior asserted in service tests
 
-    assert tr.name == "n2"  # last set wins, title delegates to set_name
+    assert tr.name == "n1"
     assert tr.attributes["a"] == 1
     assert tr.attributes["__proofy_description"] == "desc"
     assert tr.attributes["__proofy_severity"] == "critical"

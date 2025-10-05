@@ -35,6 +35,7 @@ class ProofyConfig:
     # Run settings
     run_id: int | None = None
     run_name: str | None = None
+    run_attributes: dict[str, str] | None = None
 
     # Feature flags
     enable_attachments: bool = True

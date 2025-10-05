@@ -77,17 +77,11 @@ def register_options(parser: pytest.Parser) -> None:
         default=None,
         help="Name for the test run",
     )
-
-    # Feature options
     group.addoption(
-        "--proofy-disable-attachments",
-        action="store_true",
-        help="Disable attachment processing",
-    )
-    group.addoption(
-        "--proofy-disable-hooks",
-        action="store_true",
-        help="Disable plugin hook system",
+        "--proofy-run-attributes",
+        action="store",
+        default=None,
+        help="Custom run attributes as key=value pairs separated by comma (e.g., environment=prod,version=1.0)",
     )
 
 
@@ -102,6 +96,18 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
         if isinstance(value, bool):
             return value
         return value.lower() in ("true", "1", "yes", "on")
+
+    def parse_attributes(value: str | None) -> dict[str, str] | None:
+        """Parse attributes from key=value,key2=value2 format."""
+        if not value:
+            return None
+        attrs = {}
+        for pair in value.split(","):
+            pair = pair.strip()
+            if "=" in pair:
+                key, val = pair.split("=", 1)
+                attrs[key.strip()] = val.strip()
+        return attrs if attrs else None
 
     def get_option(
         name: str,
@@ -148,7 +154,7 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
         return default
 
     # Resolve all configuration options
-    return ProofyConfig(
+    proofy_config = ProofyConfig(
         mode=get_option("proofy_mode", "PROOFY_MODE", "proofy_mode", "lazy"),
         api_base=get_option("proofy_api_base", "PROOFY_API_BASE", "proofy_api_base"),
         token=get_option("proofy_token", "PROOFY_TOKEN", "proofy_token"),
@@ -175,6 +181,14 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
         run_name=get_option("proofy_run_name", "PROOFY_RUN_NAME", "proofy_run_name"),
     )
 
+    attrs_str = get_option(
+        "proofy_run_attributes", "PROOFY_RUN_ATTRIBUTES", "proofy_run_attributes"
+    )
+    if attrs_str:
+        proofy_config.run_attributes = parse_attributes(attrs_str)
+
+    return proofy_config
+
 
 def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     """Setup pytest.ini configuration options."""
@@ -187,5 +201,4 @@ def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     parser.addini("proofy_always_backup", "Always create backup files", default="false")
     parser.addini("proofy_run_id", "Existing run ID")
     parser.addini("proofy_run_name", "Test run name")
-    parser.addini("proofy_disable_attachments", "Disable attachments", default="false")
-    parser.addini("proofy_disable_hooks", "Disable hooks", default="false")
+    parser.addini("proofy_run_attributes", "Custom run attributes (key=value,key2=value2)")

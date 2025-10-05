@@ -54,6 +54,7 @@ class ProofyPytestPlugin:
             mode=config.mode,
             output_dir=config.output_dir,
             project_id=config.project_id,
+            framework="pytest",
         )
 
     def _get_test_id(self, item: pytest.Item) -> str:
@@ -131,20 +132,16 @@ class ProofyPytestPlugin:
     @pytest.hookimpl(tryfirst=True)
     def pytest_sessionstart(self, session: pytest.Session) -> None:
         """Called at the start of test session."""
-
-        self.run_id = self.results_handler.start_run(
-            framework="pytest",
-            run_name=self.config.run_name,
+        self.results_handler.start_session(
             run_id=self.config.run_id,
+            config=self.config,
         )
+
+        self.run_id = self.results_handler.start_run()
         self.config.run_id = self.run_id  # type: ignore[attr-defined]
 
-        self.results_handler.start_session(run_id=self.run_id, config=self.config)
-
         if not self.run_id and self.client:
-            raise RuntimeError(
-                "Run ID not found. Make sure to pass 'run_id' to proofy_config first or create run in pytest_sessionstart()."
-            )
+            raise RuntimeError("Run ID not found. Make sure to call start_run() first.")
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_protocol(self, item: pytest.Item):

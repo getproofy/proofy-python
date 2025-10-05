@@ -6,15 +6,17 @@ from __future__ import annotations
 from proofy.core.api import (
     add_attachment,
     add_attributes,
+    add_run_attributes,
     add_tag,
     add_tags,
     get_current_run_id,
     get_current_test_id,
+    get_run_attributes,
     set_description,
     set_name,
+    set_run_attribute,
     set_run_name,
     set_severity,
-    set_title,
 )
 from proofy.core.client import ArtifactType
 
@@ -42,13 +44,15 @@ __all__ = [
     # Public API
     "add_attachment",
     "add_attributes",
+    "add_run_attributes",
     "add_tag",
     "add_tags",
     "get_current_run_id",
     "get_current_test_id",
+    "get_run_attributes",
     "set_description",
     "set_name",
-    "set_title",
+    "set_run_attribute",
     "set_run_name",
     "set_severity",
     # Decorators

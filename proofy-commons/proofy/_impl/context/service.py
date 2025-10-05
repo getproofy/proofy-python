@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import IO, Any
 
+from ..._impl.config import ProofyConfig
 from ...core.client import ArtifactType
 from ...core.models import Attachment, TestResult
 from ..export.attachments import (
@@ -41,11 +42,27 @@ class ContextService:
     def get_result(self, id: str) -> TestResult | None:
         return self.get_results().get(id)
 
+    def get_run_name(self) -> str | None:
+        return self.session_ctx.run_name if self.session_ctx else None
+
+    def get_run_id(self) -> int | None:
+        return self.session_ctx.run_id if self.session_ctx else None
+
     # Session lifecycle
     def start_session(
-        self, run_id: int | None = None, config: dict[str, Any] | None = None
+        self,
+        run_id: int | None = None,
+        config: ProofyConfig | None = None,
+        run_name: str | None = None,
+        run_attributes: dict[str, Any] | None = None,
     ) -> SessionContext:
-        session = SessionContext(session_id=str(uuid.uuid4()), run_id=run_id, config=config)
+        session = SessionContext(
+            session_id=str(uuid.uuid4()),
+            run_id=run_id,
+            config=config,
+            run_name=run_name,
+            run_attributes=run_attributes or {},
+        )
         self.backend.set_session(session)
         return session
 
@@ -111,6 +128,20 @@ class ContextService:
             new_tags = [t for t in tags if t not in ctx.tags]
             if new_tags:
                 ctx.tags.extend(new_tags)
+
+    # Run-level metadata
+    def set_run_attribute(self, key: str, value: Any) -> None:
+        if sess := self.session_ctx:
+            sess.run_attributes[key] = value
+
+    def add_run_attributes(self, **kwargs: Any) -> None:
+        if sess := self.session_ctx:
+            sess.run_attributes.update(kwargs)
+
+    def get_run_attributes(self) -> dict[str, Any]:
+        if sess := self.session_ctx:
+            return sess.run_attributes.copy()
+        return {}
 
     # Attachments
     def attach(

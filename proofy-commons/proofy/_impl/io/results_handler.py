@@ -10,14 +10,15 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
+from ..._impl.config import ProofyConfig
 from ...core.client import ProofyClient
 from ...core.models import (
     ReportingStatus,
     RunStatus,
     TestResult,
 )
+from ...core.system_info import collect_system_attributes, get_framework_version
 from ...core.utils import now_rfc3339
 from ..context import get_context_service
 from .artifact_uploader import ArtifactUploader
@@ -36,12 +37,13 @@ class ResultsHandler:
         mode: str,
         output_dir: str,
         project_id: int | None,
+        framework: str,
     ) -> None:
         self.client = client
         self.mode = mode  # "live" | "lazy" | "batch"
         self.output_dir = Path(output_dir)
         self.project_id: int | None = project_id
-
+        self.framework = framework
         # In-process accumulation for lazy/batch
         self._batch_results: list[str] = []  # test IDs
         self.context = get_context_service()
@@ -51,62 +53,119 @@ class ResultsHandler:
         return self.context.get_result(id)
 
     # --- Run lifecycle ---
-    def start_run(
-        self,
-        *,
-        framework: str,
-        run_name: str | None,
-        run_id: int | None,
-    ) -> int | None:
-        if not self.client or not self.project_id:
-            return None
+    def start_run(self) -> int | None:
+        """Start a new run, using data from session context.
 
-        name = run_name or f"Test run {framework}-{now_rfc3339()}"
+        Returns:
+            Run ID if run was created, None if client not configured
+        """
+        session = self.context.session_ctx
+        if not session:
+            raise RuntimeError("Session not initialized. Call start_session() first.")
+
+        run_id = session.run_id
+        run_name = session.run_name
+        run_attributes = session.run_attributes
+
+        if not self.client or not self.project_id:
+            return run_id
 
         if run_id:
             raise RuntimeError(f"Update run {run_id} is not implemented yet")
             self.client.update_run(
                 run_id=run_id,
                 status=RunStatus.STARTED,
-                attributes={
-                    "framework": framework,
-                },
+                attributes=run_attributes,
             )
         else:
             try:
                 response = self.client.create_run(
                     project_id=self.project_id,
-                    name=name,
+                    name=run_name,
                     started_at=now_rfc3339(),
-                    attributes={
-                        "framework": framework,
-                    },
+                    attributes=run_attributes,
                 )
                 run_id = response.get("id", None)
                 if not run_id:
                     raise RuntimeError(f"'run_id' not found in response: {json.dumps(response)}")
+
+                self.update_session_run_id(run_id)
+
             except Exception as e:
-                logger.error(
-                    f"Run {name!r} creation failed for project {self.project_id}: {e}",
-                    exc_info=True,
-                )
                 raise RuntimeError(
-                    f"Run {name!r} creation failed for project {self.project_id}: {e}"
+                    f"Run {run_name!r} creation failed for project {self.project_id}: {e}"
                 ) from e
 
         return run_id
 
+    def update_session_run_id(self, run_id: int) -> None:
+        """Update session context with run ID.
+
+        Args:
+            run_id: The run ID to set in session context
+        """
+        session = self.context.session_ctx
+        if session:
+            session.run_id = run_id
+
+    def update_session_run_name(self, run_name: str) -> None:
+        """Update session context with run name.
+
+        Args:
+            run_name: The run name to set in session context
+        """
+        session = self.context.session_ctx
+        if session:
+            session.run_name = run_name
+
     def start_session(
-        self, run_id: int | None = None, config: dict[str, Any] | None = None
+        self,
+        config: ProofyConfig | None = None,
+        run_id: int | None = None,
     ) -> None:
-        self.context.start_session(run_id=run_id, config=config)
+        """Start a session and prepare run metadata in session context.
+
+        - Initializes the in-process session context
+        - Computes and stores run_name in session (defaults if not provided)
+        - Computes and stores run_attributes in session (system + user)
+
+        Args:
+            run_id: Optional run ID (if continuing existing run)
+            config: Proofy configuration
+        """
+        # Determine effective run name
+        effective_run_name = None
+        if config and getattr(config, "run_name", None):
+            effective_run_name = config.run_name  # type: ignore[attr-defined]
+        else:
+            # Default fallback, includes framework and timestamp
+            effective_run_name = f"Test run {self.framework}-{now_rfc3339()}"
+
+        # Build run attributes: system + user-provided
+        system_attrs = collect_system_attributes()
+        system_attrs["__proofy_framework"] = self.framework
+        if framework_version := get_framework_version(self.framework):
+            system_attrs["__proofy_framework_version"] = framework_version
+        user_attrs = {}
+        if config and getattr(config, "run_attributes", None):
+            user_attrs = config.run_attributes or {}  # type: ignore[attr-defined]
+        prepared_run_attrs = {**system_attrs, **user_attrs}
+
+        # Initialize session with prepared name/attributes
+        self.context.start_session(
+            run_id=run_id,
+            config=config,
+            run_name=effective_run_name,
+            run_attributes=prepared_run_attrs,
+        )
 
     def finish_run(
         self,
         *,
         run_id: int | None,
     ) -> None:
-        run_id = run_id or self.context.session_ctx.run_id
+        session = self.context.session_ctx
+        run_id = run_id or (session.run_id if session else None)
         if not self.client:
             return
         if not run_id:
@@ -115,15 +174,18 @@ class ResultsHandler:
             self.flush_results()
         except Exception as e:
             logger.error(f"Failed to flush results: {e}")
+
+        # Get final run attributes (without stats - backend calculates them)
+        session = self.context.session_ctx
+        final_attrs = session.run_attributes.copy() if session else {}
+
         try:
             self.client.update_run(
                 run_id=run_id,
                 name=self.context.session_ctx.run_name,
                 status=RunStatus.FINISHED,
                 ended_at=now_rfc3339(),
-                attributes={
-                    "total_results": len(self.context.get_results()),
-                },
+                attributes=final_attrs,
             )
         except Exception as e:
             raise RuntimeError(f"Failed to finalize run: {e}") from e
@@ -295,15 +357,23 @@ class ResultsHandler:
             # live mode does not buffer; nothing to flush
             return None
 
-    # artifact upload methods moved to ArtifactUploader
-
     # --- Local backups ---
     def backup_results(self) -> None:
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
             results_file = self.output_dir / "results.json"
             items = [r.to_dict() for r in self.context.get_results().values()]
-            payload = {"count": len(items), "items": items}
+            run_attributes = self.context.get_run_attributes()
+            run_name = self.context.get_run_name()
+            run_id = self.context.get_run_id()
+
+            payload = {
+                "run_name": run_name,
+                "run_id": run_id,
+                "run_attributes": run_attributes,
+                "count": len(items),
+                "items": items,
+            }
             with open(results_file, "w") as f:
                 json.dump(payload, f, indent=2, default=str)
             logger.info(f"Results backed up to {results_file}")

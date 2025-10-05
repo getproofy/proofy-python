@@ -25,6 +25,9 @@ from proofy import (
     add_tag, add_tags, add_attributes,
     set_run_name,
 
+    # Run-level metadata
+    set_run_attribute, add_run_attributes, get_run_attributes,
+
     # Attachments
     add_attachment,
 
@@ -63,6 +66,31 @@ from proofy import name, description, severity, tags, attributes
 def test_user_authentication():
     pass
 ```
+
+#### Run Attributes
+
+Run attributes allow you to add metadata to the entire test run (not individual tests):
+
+```python
+import proofy
+
+# Set individual run attribute
+proofy.set_run_attribute("environment", "production")
+
+# Set multiple run attributes at once
+proofy.add_run_attributes(
+    version="1.2.3",
+    build_number="456",
+    branch="main",
+    tested_by="CI"
+)
+
+# Get all run attributes
+attrs = proofy.get_run_attributes()
+print(attrs)  # {'environment': 'production', 'version': '1.2.3', ...}
+```
+
+**Note:** Run attributes should be set before or during session start (e.g., in `conftest.py` for pytest). The system also automatically collects system information like Python version, OS, and framework version.
 
 ## Architecture
 

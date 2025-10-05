@@ -118,6 +118,33 @@ def test_user_login():
     pass
 ```
 
+### Run Attributes
+
+Add metadata to your entire test run (not individual tests):
+
+```bash
+# Via CLI
+pytest --proofy-run-attributes environment=production,version=1.2.3
+
+# Via conftest.py (recommended)
+import proofy
+
+def pytest_sessionstart(session):
+    proofy.add_run_attributes(
+        environment="staging",
+        version="1.2.3",
+        build_id="456"
+    )
+```
+
+**Automatic System Attributes** collected for every run:
+
+- Python version, OS, platform, architecture
+- Framework and framework version
+
+See detailed documentation:
+- [Examples](examples/run_attributes_example.py)
+
 ## Development
 
 ### Prerequisites
