@@ -12,7 +12,7 @@ import logging
 import os
 from pathlib import Path
 
-from ..._impl.config import ProofyConfig
+from ..._internal.config import ProofyConfig
 from ...core.client import Client
 from ...core.models import (
     ReportingStatus,
@@ -21,14 +21,13 @@ from ...core.models import (
 )
 from ...core.system_info import collect_system_attributes, get_framework_version
 from ...core.utils import now_rfc3339
+from ..artifacts import ArtifactUploader
 from ..context import get_context_service
 from ..uploader import UploaderWorker, UploadQueue
-from .artifact_uploader import ArtifactUploader
 
 logger = logging.getLogger("ProofyConductor")
 
 
-# rename to ProofyConductor
 class ResultsHandler:
     """Handle run lifecycle, result sending, and local backups.
 

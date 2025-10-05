@@ -5,8 +5,7 @@ from __future__ import annotations
 import threading
 from typing import Protocol
 
-from proofy.core.models import TestResult
-
+from ...core.models import TestResult
 from .models import SessionContext
 
 

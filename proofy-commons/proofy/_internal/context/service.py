@@ -7,17 +7,17 @@ import uuid
 from pathlib import Path
 from typing import IO, Any
 
-from ..._impl.config import ProofyConfig
+from ..._internal.config import ProofyConfig
+from ..._internal.hooks import get_plugin_manager
 from ...core.client import ArtifactType
 from ...core.models import Attachment, TestResult
-from ..export.attachments import (
+from ..artifacts import (
     cache_attachment,
     cache_attachment_from_bytes,
     cache_attachment_from_stream,
     is_cached_path,
     should_cache_for_mode,
 )
-from ..hooks.manager import get_plugin_manager
 from .backend import ContextBackend, ThreadLocalBackend
 from .models import SessionContext
 

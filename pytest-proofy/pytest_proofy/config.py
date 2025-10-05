@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 import pytest
-from proofy._impl.config import ProofyConfig
+from proofy._internal.config import ProofyConfig
 
 
 def register_options(parser: pytest.Parser) -> None:

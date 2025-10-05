@@ -5,8 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import IO, Any
 
-from .._impl.context import get_context_service
-from .._impl.context.models import SessionContext
+from .._internal.context import SessionContext, get_context_service
 from .client import ArtifactType
 
 _context_service = get_context_service()
@@ -59,6 +58,8 @@ def get_current_test_id() -> str | None:
 
 
 # --- Run management ---
+
+
 def _get_session() -> SessionContext | None:
     return _context_service.session_ctx
 

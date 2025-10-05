@@ -1,4 +1,4 @@
-"""Shared configuration models for Proofy integrations."""
+"""Public configuration models for Proofy integrations."""
 
 from __future__ import annotations
 

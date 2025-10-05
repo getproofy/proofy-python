@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ...core.client.base import ArtifactType
+from ...core.client import ArtifactType
 
 
 @dataclass

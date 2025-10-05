@@ -1,4 +1,6 @@
-"""Upload queue and worker infrastructure (private API)."""
+"""Internal uploader queue and worker exports."""
+
+from __future__ import annotations
 
 from .queue import (
     CreateResultJob,

@@ -1,7 +1,7 @@
 """Tests for Proofy hook system."""
 
-from proofy._impl.hooks.manager import get_plugin_manager, reset_plugin_manager
-from proofy._impl.hooks.specs import hookimpl
+from proofy._internal.hooks.manager import get_plugin_manager, reset_plugin_manager
+from proofy._internal.hooks.specs import hookimpl
 
 
 class TestPluginManager:

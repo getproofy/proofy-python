@@ -23,4 +23,4 @@ repos:
             "pyproject.toml",
           ]
         files: ^(proofy-commons/proofy/core/(api|client)\.py)$
-        additional_dependencies: ["types-requests", "pytest", "pluggy"]
+        additional_dependencies: ["types-requests", "pytest", "pluggy", "httpx"]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from proofy._impl.hooks import get_plugin_manager, reset_plugin_manager
+from proofy._internal.hooks import get_plugin_manager, reset_plugin_manager
 from pytest_proofy.plugin import PytestProofyHooks
 
 

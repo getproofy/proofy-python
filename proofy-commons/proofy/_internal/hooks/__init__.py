@@ -1,4 +1,6 @@
-"""Hook system for Proofy plugin architecture."""
+"""Hook system for Proofy plugin architecture (internal)."""
+
+from __future__ import annotations
 
 from .manager import ProofyPluginManager, get_plugin_manager, reset_plugin_manager
 from .specs import ProofyHookSpecs, hookimpl, hookspec

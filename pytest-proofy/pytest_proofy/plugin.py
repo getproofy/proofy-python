@@ -10,10 +10,10 @@ from typing import Any
 
 import pytest
 from _pytest.reports import TestReport
-from proofy._impl.config import ProofyConfig
-from proofy._impl.hooks import get_plugin_manager, hookimpl
-from proofy._impl.hooks.manager import reset_plugin_manager
-from proofy._impl.io.results_handler import ResultsHandler
+from proofy._internal.config import ProofyConfig
+from proofy._internal.hooks import get_plugin_manager, hookimpl
+from proofy._internal.hooks.manager import reset_plugin_manager
+from proofy._internal.results import ResultsHandler
 
 # Import from proofy-commons
 from proofy.core.models import ResultStatus, TestResult

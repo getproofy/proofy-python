@@ -14,8 +14,8 @@ from typing import Any
 from ...core.client import ArtifactType
 from ...core.client.base import ClientHelpers
 from ...core.models import Attachment, TestResult
-from ..export.attachments import is_cached_path
 from ..uploader import UploadArtifactJob, UploadQueue
+from .attachments_cache import is_cached_path
 
 logger = logging.getLogger("ProofyConductor")
 
@@ -154,6 +154,12 @@ class ArtifactUploader:
             type: Artifact type
             attachment: Optional attachment object to update with remote_id
         """
+        # Ensure identifiers are present for type narrowing
+        if result.run_id is None or result.result_id is None:
+            raise RuntimeError("Cannot enqueue upload without run_id and result_id.")
+
+        run_id = result.run_id
+        result_id = result.result_id
 
         def on_success(upload_result: dict[str, Any]) -> None:
             """Callback invoked after successful upload."""
@@ -175,8 +181,8 @@ class ArtifactUploader:
             logger.error(f"Artifact upload failed: {error}")
 
         job = UploadArtifactJob(
-            run_id=result.run_id,
-            result_id=result.result_id,
+            run_id=run_id,
+            result_id=result_id,
             file=file,
             filename=filename,
             mime_type=mime_type,

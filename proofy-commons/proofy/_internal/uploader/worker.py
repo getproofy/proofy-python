@@ -177,7 +177,7 @@ class UploaderWorker:
         semaphore = asyncio.Semaphore(self.max_concurrent_uploads)
 
         # Track active tasks
-        active_tasks: set[asyncio.Task] = set()
+        active_tasks: set[asyncio.Task[Any]] = set()
 
         async def process_job_with_semaphore(job: Any) -> None:
             """Process a job with semaphore-limited concurrency."""
