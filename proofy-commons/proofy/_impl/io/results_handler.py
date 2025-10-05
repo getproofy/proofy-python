@@ -1,7 +1,8 @@
 """Internal ResultsHandler for run creation, result delivery and backups.
 
 This module centralizes I/O concerns (API calls and local backups) separate
-from the pytest plugin. It depends only on commons models and client.
+from the pytest plugin. Uses sync Client for operations that need immediate responses
+and async queue/worker pattern for efficient background uploads.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import os
 from pathlib import Path
 
 from ..._impl.config import ProofyConfig
-from ...core.client import ProofyClient
+from ...core.client import Client
 from ...core.models import (
     ReportingStatus,
     RunStatus,
@@ -21,6 +22,7 @@ from ...core.models import (
 from ...core.system_info import collect_system_attributes, get_framework_version
 from ...core.utils import now_rfc3339
 from ..context import get_context_service
+from ..uploader import UploaderWorker, UploadQueue
 from .artifact_uploader import ArtifactUploader
 
 logger = logging.getLogger("ProofyConductor")
@@ -28,26 +30,40 @@ logger = logging.getLogger("ProofyConductor")
 
 # rename to ProofyConductor
 class ResultsHandler:
-    """Handle run lifecycle, result sending, and local backups."""
+    """Handle run lifecycle, result sending, and local backups.
+
+    Uses sync Client for operations requiring immediate responses (run/result creation)
+    and async queue/worker for efficient background uploads (artifacts).
+    """
 
     def __init__(
         self,
         *,
-        client: ProofyClient | None,
+        client: Client | None,
         mode: str,
         output_dir: str,
         project_id: int | None,
         framework: str,
+        queue: UploadQueue | None = None,
+        worker: UploaderWorker | None = None,
     ) -> None:
         self.client = client
         self.mode = mode  # "live" | "lazy" | "batch"
         self.output_dir = Path(output_dir)
         self.project_id: int | None = project_id
         self.framework = framework
+        self.queue = queue
+        self.worker = worker
+
         # In-process accumulation for lazy/batch
         self._batch_results: list[str] = []  # test IDs
         self.context = get_context_service()
-        self.artifacts = ArtifactUploader(client=self.client)
+
+        # Initialize artifact uploader with queue (if available)
+        if self.queue:
+            self.artifacts = ArtifactUploader(queue=self.queue)
+        else:
+            self.artifacts = None
 
     def get_result(self, id: str) -> TestResult | None:
         return self.context.get_result(id)
@@ -175,6 +191,12 @@ class ResultsHandler:
         except Exception as e:
             logger.error(f"Failed to flush results: {e}")
 
+        # Wait for queue to drain if using async worker
+        if self.queue:
+            logger.debug("Waiting for upload queue to drain...")
+            if not self.queue.join(timeout=30.0):
+                logger.warning("Upload queue did not drain within 30s")
+
         # Get final run attributes (without stats - backend calculates them)
         session = self.context.session_ctx
         final_attrs = session.run_attributes.copy() if session else {}
@@ -191,6 +213,16 @@ class ResultsHandler:
             raise RuntimeError(f"Failed to finalize run: {e}") from e
 
     def end_session(self) -> None:
+        """End the session and stop the worker if running."""
+        # Stop worker gracefully
+        if self.worker:
+            logger.debug("Stopping uploader worker...")
+            self.worker.stop(timeout=10.0)
+            # Log final metrics
+            if hasattr(self.worker, "get_metrics"):
+                metrics = self.worker.get_metrics()
+                logger.info(f"Uploader metrics: {metrics}")
+
         self.context.end_session()
 
     # --- Result handling ---
@@ -282,9 +314,10 @@ class ResultsHandler:
             try:
                 self.update_test_result(result)
 
-                self.artifacts.upload_traceback(result)
-                for attachment in result.attachments:
-                    self.artifacts.upload_attachment(result, attachment)
+                if self.artifacts:
+                    self.artifacts.upload_traceback(result)
+                    for attachment in result.attachments:
+                        self.artifacts.upload_attachment(result, attachment)
 
             except Exception as e:
                 result.reporting_status = ReportingStatus.FAILED
@@ -308,15 +341,16 @@ class ResultsHandler:
                 logger.error(f"Failed to send result in lazy mode: {e}")
             else:
                 result.reporting_status = ReportingStatus.FINISHED
-                try:
-                    self.artifacts.upload_traceback(result)
-                except Exception as e:
-                    logger.error(f"Failed to upload traceback in lazy mode: {e}")
-                for attachment in result.attachments:
+                if self.artifacts:
                     try:
-                        self.artifacts.upload_attachment(result, attachment)
+                        self.artifacts.upload_traceback(result)
                     except Exception as e:
-                        logger.error(f"Failed to upload attachment in lazy mode: {e}")
+                        logger.error(f"Failed to upload traceback in lazy mode: {e}")
+                    for attachment in result.attachments:
+                        try:
+                            self.artifacts.upload_attachment(result, attachment)
+                        except Exception as e:
+                            logger.error(f"Failed to upload attachment in lazy mode: {e}")
 
     def _store_result_batch(self, result: TestResult) -> None:
         self._batch_results.append(result.id)
@@ -337,15 +371,16 @@ class ResultsHandler:
                 logger.error(f"Failed to send result in batch mode: {e}")
             else:
                 result.reporting_status = ReportingStatus.FINISHED
-                try:
-                    self.artifacts.upload_traceback(result)
-                except Exception as e:
-                    logger.error(f"Failed to upload traceback in batch mode: {e}")
-                for attachment in result.attachments:
+                if self.artifacts:
                     try:
-                        self.artifacts.upload_attachment(result, attachment)
+                        self.artifacts.upload_traceback(result)
                     except Exception as e:
-                        logger.error(f"Failed to upload attachment in batch mode: {e}")
+                        logger.error(f"Failed to upload traceback in batch mode: {e}")
+                    for attachment in result.attachments:
+                        try:
+                            self.artifacts.upload_attachment(result, attachment)
+                        except Exception as e:
+                            logger.error(f"Failed to upload attachment in batch mode: {e}")
         self._batch_results = []
 
     def flush_results(self) -> None:

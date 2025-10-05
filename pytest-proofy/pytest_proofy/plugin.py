@@ -16,7 +16,8 @@ from proofy._impl.hooks.manager import reset_plugin_manager
 from proofy._impl.io.results_handler import ResultsHandler
 
 # Import from proofy-commons
-from proofy.core import ProofyClient
+from proofy._impl.uploader import UploaderWorker, UploadQueue
+from proofy.core import Client
 from proofy.core.models import ResultStatus, TestResult
 from pytest import CallInfo
 
@@ -32,8 +33,11 @@ class ProofyPytestPlugin:
 
     def __init__(self, config: ProofyConfig):
         self.config = config
-        self.client: ProofyClient | None = None
+        self.client: Client | None = None
         self.run_id: int | None = None
+        # Upload infrastructure
+        self.queue: UploadQueue | None = None
+        self.worker: UploaderWorker | None = None
         # Results handler will be initialized after client is created
         self.results_handler: ResultsHandler | None = None
 
@@ -42,11 +46,22 @@ class ProofyPytestPlugin:
         self._num_deselected = 0
         self._terminal_summary = ""
 
-        # Initialize client if API configured, if not we can still use the results handler without a client
+        # Initialize client and worker if API configured
         if config.api_base and config.token:
-            self.client = ProofyClient(
-                base_url=config.api_base, token=config.token, timeout_s=config.timeout_s
+            self.client = Client(
+                base_url=config.api_base, token=config.token, timeout=config.timeout_s
             )
+            # Initialize upload queue and worker for async artifact uploads
+            self.queue = UploadQueue(maxsize=1000)
+            self.worker = UploaderWorker(
+                queue=self.queue,
+                base_url=config.api_base,
+                token=config.token,
+                timeout=config.timeout_s,
+                max_retries=3,
+                fail_open=True,
+            )
+            self.worker.start()
 
         # Initialize results handler (works without client as well)
         self.results_handler = ResultsHandler(
@@ -55,6 +70,8 @@ class ProofyPytestPlugin:
             output_dir=config.output_dir,
             project_id=config.project_id,
             framework="pytest",
+            queue=self.queue,
+            worker=self.worker,
         )
 
     def _get_test_id(self, item: pytest.Item) -> str:

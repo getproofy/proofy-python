@@ -3,56 +3,35 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 
+import httpx
 import pytest
-from proofy.core.client import ArtifactType, ProofyClient
+import respx
+from proofy.core.client import ArtifactType, Client
 from proofy.core.models import ResultStatus, RunStatus
 
 
-class FakeResponse:
-    def __init__(
-        self, status_code: int = 200, json_data: dict | None = None, text: str = ""
-    ) -> None:
-        self.status_code = status_code
-        self._json_data = json_data
-        self.text = text
+@respx.mock
+def test_health_makes_get_and_returns_text():
+    """Test health endpoint with proper authorization."""
+    client = Client("https://api.example", token="TOKEN", timeout=5.0)
 
-    def json(self):
-        if self._json_data is None:
-            raise ValueError("No JSON")
-        return self._json_data
-
-    def raise_for_status(self):
-        return None
-
-
-def test_health_makes_get_and_returns_text(monkeypatch):
-    captured: dict = {}
-
-    def fake_request(method, url, json=None, headers=None, timeout=None):
-        captured["method"] = method
-        captured["url"] = url
-        captured["json"] = json
-        captured["headers"] = headers
-        return FakeResponse(text="ok")
-
-    client = ProofyClient("https://api.example", token="TOKEN", timeout_s=5.0)
-    monkeypatch.setattr(client.session, "request", fake_request)
+    route = respx.get("https://api.example/health").mock(
+        return_value=httpx.Response(200, text="ok")
+    )
 
     assert client.health() == "ok"
-    assert captured["method"] == "GET"
-    assert captured["url"] == "https://api.example/health"
-    assert captured["headers"]["Authorization"].startswith("Bearer ")
+    assert route.called
+
+    # Verify authorization header was sent
+    request = route.calls.last.request
+    assert "Authorization" in request.headers
+    assert request.headers["Authorization"].startswith("Bearer ")
 
 
-def test_stringify_attributes_and_datetime_normalization(monkeypatch):
-    captured: dict = {}
-
-    def fake_request(method, url, json=None, headers=None, timeout=None):
-        captured["json"] = json
-        return FakeResponse(json_data={"id": 123})
-
-    client = ProofyClient("https://api.example")
-    monkeypatch.setattr(client.session, "request", fake_request)
+@respx.mock
+def test_stringify_attributes_and_datetime_normalization():
+    """Test that attributes are stringified and datetimes normalized."""
+    client = Client("https://api.example")
 
     started = datetime(2020, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     attrs = {
@@ -62,26 +41,36 @@ def test_stringify_attributes_and_datetime_normalization(monkeypatch):
         "nested": {"a": 1, "b": [1, 2, 3]},
     }
 
+    route = respx.post("https://api.example/v1/runs").mock(
+        return_value=httpx.Response(201, json={"id": 123})
+    )
+
     resp = client.create_run(project_id=7, name="run-1", started_at=started, attributes=attrs)
     assert isinstance(resp, dict)
+    assert resp["id"] == 123
+
+    # Check the request body
+    request = route.calls.last.request
+    import json
+
+    body = json.loads(request.content)
 
     # started_at normalized to RFC3339 string
-    assert captured["json"]["started_at"].startswith("2020-01-02T03:04:05")
+    assert body["started_at"].startswith("2020-01-02T03:04:05")
 
     # attributes stringified
-    stringified = captured["json"]["attributes"]
+    stringified = body["attributes"]
     assert isinstance(stringified["int"], str) and stringified["int"] == "1"
     assert isinstance(stringified["dt"], str) and stringified["dt"].endswith("Z")
     assert stringified["enum"] == str(ResultStatus.PASSED.value)
     # nested collections become JSON-encoded strings
-    import json as _json
-
-    decoded_nested = _json.loads(stringified["nested"])
+    decoded_nested = json.loads(stringified["nested"])
     assert decoded_nested == {"a": 1, "b": [1, 2, 3]}
 
 
-def test_update_run_validations(monkeypatch):
-    client = ProofyClient("https://api.example")
+def test_update_run_validations():
+    """Test update_run validation logic."""
+    client = Client("https://api.example")
 
     # No fields provided
     with pytest.raises(ValueError):
@@ -93,29 +82,32 @@ def test_update_run_validations(monkeypatch):
     with pytest.raises(ValueError):
         client.update_run(1, ended_at=datetime.now(timezone.utc))
 
-    seen: dict = {}
 
-    def fake_request(method, url, json=None, headers=None, timeout=None):
-        seen["method"] = method
-        seen["url"] = url
-        seen["json"] = json
-        return FakeResponse(status_code=204, json_data={})
-
-    monkeypatch.setattr(client.session, "request", fake_request)
+@respx.mock
+def test_update_run_with_valid_fields():
+    """Test update_run with valid fields."""
+    client = Client("https://api.example")
     ended = datetime(2020, 1, 1, tzinfo=timezone.utc)
     status = RunStatus.FINISHED
 
+    route = respx.patch("https://api.example/v1/runs/99").mock(return_value=httpx.Response(204))
+
     code = client.update_run(99, status=status, ended_at=ended, attributes={"k": "v"})
     assert code == 204
-    assert seen["method"] == "PATCH"
-    assert seen["url"].endswith("/v1/runs/99")
-    assert seen["json"]["status"] == status.value
-    assert seen["json"]["ended_at"].endswith("Z")
-    assert seen["json"]["attributes"]["k"] == "v"
+
+    # Check request
+    request = route.calls.last.request
+    import json
+
+    body = json.loads(request.content)
+    assert body["status"] == status.value
+    assert body["ended_at"].endswith("Z")
+    assert body["attributes"]["k"] == "v"
 
 
-def test_result_create_and_update_validations(monkeypatch):
-    client = ProofyClient("https://api.example")
+def test_result_create_and_update_validations():
+    """Test result validation logic."""
+    client = Client("https://api.example")
 
     with pytest.raises(ValueError):
         client.update_result(1, 2)  # no fields to update
@@ -126,25 +118,31 @@ def test_result_create_and_update_validations(monkeypatch):
     with pytest.raises(ValueError):
         client.update_result(1, 2, status=ResultStatus.PASSED)
 
-    rec: dict = {}
 
-    def fake_request(method, url, json=None, headers=None, timeout=None):
-        rec["method"] = method
-        rec["url"] = url
-        rec["json"] = json
-        if method == "POST":
-            return FakeResponse(json_data={"id": 77})
-        return FakeResponse(status_code=204, json_data={})
+@respx.mock
+def test_result_create_and_update():
+    """Test result creation and updates."""
+    client = Client("https://api.example")
 
-    monkeypatch.setattr(client.session, "request", fake_request)
+    # Create result
+    create_route = respx.post("https://api.example/v1/runs/10/results").mock(
+        return_value=httpx.Response(201, json={"id": 77})
+    )
 
     created = client.create_result(10, name="t", path="p", status=ResultStatus.PASSED)
     assert created["id"] == 77
-    assert rec["method"] == "POST"
-    assert rec["url"].endswith("/v1/runs/10/results")
-    assert rec["json"]["status"] == ResultStatus.PASSED.value
+
+    request = create_route.calls.last.request
+    import json
+
+    body = json.loads(request.content)
+    assert body["status"] == ResultStatus.PASSED.value
 
     # Proper update
+    respx.patch("https://api.example/v1/runs/10/results/77").mock(
+        return_value=httpx.Response(204)
+    )
+
     code = client.update_result(
         10, 77, status=ResultStatus.PASSED, ended_at=datetime.now(timezone.utc)
     )
@@ -152,7 +150,8 @@ def test_result_create_and_update_validations(monkeypatch):
 
 
 def test_presign_artifact_validation():
-    client = ProofyClient("https://api.example")
+    """Test presign_artifact validation."""
+    client = Client("https://api.example")
     with pytest.raises(ValueError):
         client.presign_artifact(
             1,
@@ -165,41 +164,33 @@ def test_presign_artifact_validation():
         )
 
 
-def test_upload_artifact_file_happy_path_with_bytes(monkeypatch):
-    client = ProofyClient("https://api.example")
+@respx.mock
+def test_upload_artifact_file_happy_path_with_bytes():
+    """Test upload_artifact_file with bytes."""
+    client = Client("https://api.example")
 
-    captured = {"presign": None, "put": None, "finalize": None}
-
-    def fake_presign(run_id, result_id, filename, mime_type, size_bytes, hash_sha256, type):  # noqa: ARG001
-        captured["presign"] = {
-            "run_id": run_id,
-            "result_id": result_id,
-            "filename": filename,
-            "mime_type": mime_type,
-            "size_bytes": size_bytes,
-            "hash_sha256": hash_sha256,
-            "type": type,
-        }
-        return {
-            "artifact_id": 42,
-            "upload": {
-                "method": "PUT",
-                "url": "https://upload.example/file",
-                "headers": {"X-Test": "yes"},
+    # Mock presign endpoint
+    respx.post("https://api.example/v1/runs/1/results/2/artifacts/presign").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "artifact_id": 42,
+                "upload": {
+                    "method": "PUT",
+                    "url": "https://upload.example/file",
+                    "headers": {"X-Test": "yes"},
+                },
             },
-        }
+        )
+    )
 
-    def fake_put(url, data=None, headers=None):
-        captured["put"] = {"url": url, "data": data, "headers": headers}
-        return FakeResponse(status_code=200)
+    # Mock upload endpoint
+    upload_route = respx.put("https://upload.example/file").mock(return_value=httpx.Response(200))
 
-    def fake_finalize(run_id, result_id, artifact_id):
-        captured["finalize"] = (run_id, result_id, artifact_id)
-        return 204, {"ok": True}
-
-    monkeypatch.setattr(client, "presign_artifact", fake_presign)
-    monkeypatch.setattr("proofy.core.client.requests.put", fake_put)
-    monkeypatch.setattr(client, "finalize_artifact", fake_finalize)
+    # Mock finalize endpoint
+    finalize_route = respx.post(
+        "https://api.example/v1/runs/1/results/2/artifacts/42/finalize"
+    ).mock(return_value=httpx.Response(204, json={"ok": True}))
 
     data = b"hello"
     sha = hashlib.sha256(data).hexdigest()
@@ -214,61 +205,60 @@ def test_upload_artifact_file_happy_path_with_bytes(monkeypatch):
         type=ArtifactType.ATTACHMENT,
     )
 
-    assert captured["put"]["url"].startswith("https://upload.example/")
-    assert captured["put"]["headers"]["X-Test"] == "yes"
+    assert upload_route.called
+    assert upload_route.calls.last.request.headers.get("X-Test") == "yes"
     assert out["artifact_id"] == 42
     assert out["status_code"] == 204
-    assert captured["finalize"] == (1, 2, 42)
+    assert finalize_route.called
 
 
-def test_upload_artifact_path_auto_calculates_and_calls_presign(tmp_path, monkeypatch):
-    client = ProofyClient("https://api.example")
+@respx.mock
+def test_upload_artifact_path_auto_calculates_and_calls_presign(tmp_path):
+    """Test upload_artifact with file path."""
+    client = Client("https://api.example")
 
     p = tmp_path / "file.bin"
     data = b"binary-data-123"
     p.write_bytes(data)
     expected_sha = hashlib.sha256(data).hexdigest()
 
-    called = {"args": None, "put": None}
-
-    def fake_presign(run_id, result_id, filename, mime_type, size_bytes, hash_sha256, type):  # noqa: ARG001
-        called["args"] = (
-            run_id,
-            result_id,
-            filename,
-            mime_type,
-            size_bytes,
-            hash_sha256,
-            type,
+    # Mock presign
+    presign_route = respx.post("https://api.example/v1/runs/1/results/2/artifacts/presign").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "artifact_id": 7,
+                "upload": {"method": "PUT", "url": "https://up", "headers": {}},
+            },
         )
-        return {
-            "artifact_id": 7,
-            "upload": {"method": "PUT", "url": "https://up", "headers": {}},
-        }
+    )
 
-    def fake_put(url, data=None, headers=None):
-        # Ensure the file handle content matches
-        assert data.read() == data.seek(0) or True  # tolerate streams being read elsewhere
-        called["put"] = (url, headers)
-        return FakeResponse(status_code=200)
+    # Mock upload
+    respx.put("https://up").mock(return_value=httpx.Response(200))
 
-    monkeypatch.setattr(client, "presign_artifact", fake_presign)
-    monkeypatch.setattr("proofy.core.client.requests.put", fake_put)
-    monkeypatch.setattr(client, "finalize_artifact", lambda a, b, c: (204, {}))
+    # Mock finalize
+    respx.post(
+        "https://api.example/v1/runs/1/results/2/artifacts/7/finalize"
+    ).mock(return_value=httpx.Response(204, json={}))
 
     out = client.upload_artifact(1, 2, file=str(p), type=ArtifactType.OTHER)
 
     assert out["artifact_id"] == 7
-    args = called["args"]
-    assert args[0:2] == (1, 2)
-    assert args[2] == "file.bin"
-    assert args[3] in ("application/octet-stream",)  # default guess
-    assert args[4] == len(data)
-    assert args[5] == expected_sha
+    assert presign_route.called
+
+    # Check presign request
+    import json
+
+    body = json.loads(presign_route.calls.last.request.content)
+    assert body["filename"] == "file.bin"
+    assert body["mime_type"] in ("application/octet-stream",)  # default guess
+    assert body["size_bytes"] == len(data)
+    assert body["hash_sha256"] == expected_sha
 
 
 def test_upload_artifact_non_seekable_stream_raises():
-    client = ProofyClient("https://api.example")
+    """Test that non-seekable streams are handled properly."""
+    client = Client("https://api.example")
 
     class NonSeekable:
         def __init__(self, payload: bytes):
@@ -281,5 +271,7 @@ def test_upload_artifact_non_seekable_stream_raises():
             self._read = True
             return self._payload
 
-    with pytest.raises(ValueError):
-        client.upload_artifact(1, 2, file=NonSeekable(b"abc"), filename="x.bin")
+    # Non-seekable streams should work now (we read them into memory)
+    # Let's test that it raises ValueError with proper message
+    with pytest.raises(ValueError, match="filename.*required"):
+        client.upload_artifact(1, 2, file=NonSeekable(b"abc"))

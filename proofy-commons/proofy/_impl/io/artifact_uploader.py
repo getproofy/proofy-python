@@ -1,7 +1,7 @@
 """Artifact uploading utilities extracted from ResultsHandler.
 
-This module centralizes logic for uploading attachments and tracebacks,
-keeping network I/O concerns in one place and enabling easier testing.
+This module centralizes logic for uploading attachments and tracebacks
+using asynchronous queue-based uploads.
 """
 
 from __future__ import annotations
@@ -11,18 +11,29 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
-from ...core.client import ArtifactType, ProofyClient
+from ...core.client import ArtifactType
+from ...core.client.base import ClientHelpers
 from ...core.models import Attachment, TestResult
 from ..export.attachments import is_cached_path
+from ..uploader import UploadArtifactJob, UploadQueue
 
 logger = logging.getLogger("ProofyConductor")
 
 
 class ArtifactUploader:
-    """Upload artifacts (attachments, tracebacks) related to test results."""
+    """Upload artifacts (attachments, tracebacks) related to test results.
 
-    def __init__(self, client: ProofyClient | None) -> None:
-        self.client = client
+    Uses queue-based async uploads via UploadQueue + Worker for efficient
+    background processing without blocking test execution.
+    """
+
+    def __init__(self, queue: UploadQueue) -> None:
+        """Initialize artifact uploader.
+
+        Args:
+            queue: Upload queue for async uploads
+        """
+        self.queue = queue
 
     def upload_attachment(
         self, result: TestResult, attachment: Attachment | dict[str, Any]
@@ -32,9 +43,6 @@ class ArtifactUploader:
         Best-effort: computes MIME when missing and removes cached files on success.
         """
         try:
-            if not self.client:
-                return
-
             # Accept both dataclass Attachment and dict payloads
             if isinstance(attachment, dict):
                 name = attachment.get("name") or attachment.get("filename")
@@ -69,59 +77,26 @@ class ArtifactUploader:
                 else ArtifactType.ATTACHMENT
             )
 
-            # Prefer fast path with known size/hash via high-level helper
-            if size_bytes is not None and sha256 is not None:
-                resp = self.client.upload_artifact_file(  # type: ignore[union-attr]
-                    run_id=result.run_id,
-                    result_id=result.result_id,
-                    file=path,
-                    filename=name,
-                    mime_type=effective_mime,
-                    size_bytes=int(size_bytes),
-                    hash_sha256=str(sha256),
-                    type=final_type,
-                )
-            else:
-                # Let client compute size/hash as needed
-                resp = self.client.upload_artifact(  # type: ignore[union-attr]
-                    run_id=result.run_id,
-                    result_id=result.result_id,
-                    filename=name,
-                    mime_type=effective_mime,
-                    file=path,
-                    type=final_type,
-                )
+            # Compute size/hash if not provided
+            path_obj = Path(path)
+            if size_bytes is None or sha256 is None:
+                if path_obj.exists():
+                    size_bytes, sha256 = ClientHelpers.compute_file_hash(path_obj)
+                else:
+                    logger.warning(f"Attachment file not found: {path}")
+                    return
 
-            # Optionally record remote id when available
-            artifact_id = (resp or {}).get("artifact_id")
-            if (
-                artifact_id
-                and not isinstance(attachment, dict)
-                and hasattr(attachment, "remote_id")
-            ):
-                attachment.remote_id = str(artifact_id)  # type: ignore[attr-defined]
-
-            # If upload finalized successfully, remove cached file to free space
-            try:
-                success = False
-                if isinstance(resp, dict):
-                    status_code = resp.get("status_code")
-                    if (
-                        artifact_id
-                        or isinstance(status_code, int)
-                        and status_code
-                        in (
-                            200,
-                            201,
-                            204,
-                        )
-                    ):
-                        success = True
-                attach_path_str = path if isinstance(path, str) else str(path)
-                if success and is_cached_path(attach_path_str):
-                    Path(attach_path_str).unlink(missing_ok=True)
-            except Exception:
-                pass
+            # Queue-based upload
+            self._enqueue_upload(
+                result=result,
+                file=path,
+                filename=name,
+                mime_type=effective_mime,
+                size_bytes=size_bytes,
+                hash_sha256=sha256,
+                type=final_type,
+                attachment=attachment if not isinstance(attachment, dict) else None,
+            )
 
         except Exception:
             raise
@@ -129,8 +104,6 @@ class ArtifactUploader:
     def upload_traceback(self, result: TestResult) -> None:
         """Upload a textual traceback for a failed test, if any."""
         try:
-            if not self.client:
-                return
             if not result.traceback:
                 return
             if not result.run_id or not result.result_id:
@@ -143,14 +116,75 @@ class ArtifactUploader:
             filename = f"{safe_name[:64]}-traceback.txt"
 
             data_bytes = result.traceback.encode("utf-8", errors="replace")
+            size_bytes, sha256 = ClientHelpers.compute_bytes_hash(data_bytes)
 
-            self.client.upload_artifact(  # type: ignore[union-attr]
-                run_id=result.run_id,
-                result_id=result.result_id,
+            # Queue-based upload
+            self._enqueue_upload(
+                result=result,
                 file=data_bytes,
                 filename=filename,
                 mime_type="text/plain",
+                size_bytes=size_bytes,
+                hash_sha256=sha256,
                 type=ArtifactType.TRACE,
             )
         except Exception:
             raise
+
+    def _enqueue_upload(
+        self,
+        result: TestResult,
+        file: str | Path | bytes,
+        filename: str,
+        mime_type: str,
+        size_bytes: int,
+        hash_sha256: str,
+        type: ArtifactType | int,
+        attachment: Attachment | None = None,
+    ) -> None:
+        """Enqueue an artifact upload job.
+
+        Args:
+            result: Test result
+            file: File path or bytes
+            filename: Filename
+            mime_type: MIME type
+            size_bytes: File size in bytes
+            hash_sha256: SHA-256 hex digest
+            type: Artifact type
+            attachment: Optional attachment object to update with remote_id
+        """
+
+        def on_success(upload_result: dict[str, Any]) -> None:
+            """Callback invoked after successful upload."""
+            artifact_id = upload_result.get("artifact_id")
+            if artifact_id and attachment and hasattr(attachment, "remote_id"):
+                attachment.remote_id = str(artifact_id)
+
+            # Clean up cached file
+            if isinstance(file, str | Path):
+                try:
+                    file_path_str = str(file)
+                    if is_cached_path(file_path_str):
+                        Path(file_path_str).unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+        def on_error(error: Exception) -> None:
+            """Callback invoked on upload error."""
+            logger.error(f"Artifact upload failed: {error}")
+
+        job = UploadArtifactJob(
+            run_id=result.run_id,
+            result_id=result.result_id,
+            file=file,
+            filename=filename,
+            mime_type=mime_type,
+            size_bytes=size_bytes,
+            hash_sha256=hash_sha256,
+            type=type,
+            on_success=on_success,
+            on_error=on_error,
+        )
+
+        self.queue.put(job)

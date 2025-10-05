@@ -1,8 +1,9 @@
 """Core components for Proofy integration."""
 
-from .client import ArtifactType, ProofyClient
+from .client import ArtifactType, AsyncClient, Client
 
 __all__ = [
-    "ProofyClient",
     "ArtifactType",
+    "AsyncClient",
+    "Client",
 ]
