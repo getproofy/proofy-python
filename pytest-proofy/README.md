@@ -17,12 +17,6 @@ Pytest plugin for Proofy test reporting with real-time results and rich metadata
 pip install pytest-proofy
 ```
 
-Or install from the unified package:
-
-```bash
-pip install proofy-python[pytest]
-```
-
 ## Quick Start
 
 ### Basic Usage
@@ -70,7 +64,7 @@ export PROOFY_PROJECT_ID=123
 #### pytest.ini Configuration
 
 ```ini
-[tool:pytest]
+[pytest]
 proofy_mode = lazy
 proofy_api_base = https://api.proofy.dev
 proofy_token = your-token-here
@@ -106,7 +100,6 @@ pytest --proofy-mode lazy
 - Collects results during execution
 - Sends all results in batches at session end
 - Best for CI/CD environments
-- (add info about testing time saving)
 
 ### Batch Mode
 
@@ -117,7 +110,7 @@ pytest --proofy-mode batch --proofy-batch-size 50
 ```
 
 - Collects results during execution
-- Sends results in batches (during test ??)
+- Sends results in batches
 - Optimized for large test suites
 - Configurable batch size
 
@@ -152,7 +145,7 @@ pytest
 #### Via pytest.ini
 
 ```ini
-[tool:pytest]
+[pytest]
 proofy_run_attributes = environment=development,team=backend
 ```
 
@@ -161,11 +154,6 @@ proofy_run_attributes = environment=development,team=backend
 ```python
 # conftest.py
 import proofy
-
-def pytest_configure(config):
-    """Set run attributes programmatically."""
-    # This runs after plugin initialization but before tests
-    pass
 
 def pytest_sessionstart(session):
     """Set run attributes at session start."""
@@ -196,55 +184,6 @@ def test_example():
     assert "environment" in attrs
 ```
 
-### Common Use Cases
-
-#### CI/CD Integration
-
-```bash
-# Jenkins/GitHub Actions
-pytest \
-  --proofy-run-attributes \
-    "ci=true,\
-     build_id=${BUILD_ID},\
-     branch=${GIT_BRANCH},\
-     commit=${GIT_COMMIT},\
-     ci_job=${JOB_NAME}"
-```
-
-#### Environment-Specific Testing
-
-```python
-# conftest.py
-import os
-import proofy
-
-def pytest_sessionstart(session):
-    """Add environment-specific run attributes."""
-    proofy.add_run_attributes(
-        environment=os.getenv("TEST_ENV", "local"),
-        database_url=os.getenv("DATABASE_URL", "local"),
-        api_endpoint=os.getenv("API_ENDPOINT", "http://localhost"),
-        test_suite="regression"
-    )
-```
-
-#### Application Version Tracking
-
-```python
-# conftest.py
-import proofy
-
-def pytest_sessionstart(session):
-    """Track application version being tested."""
-    from myapp import __version__
-
-    proofy.add_run_attributes(
-        app_version=__version__,
-        tested_at=datetime.now().isoformat(),
-        tester=os.getenv("USER", "unknown")
-    )
-```
-
 ## Using Decorators and Runtime API
 
 ### Decorators
@@ -267,8 +206,9 @@ def test_user_login():
 ```python
 from proofy import (
     set_name, set_description, set_severity,
-    add_tag, add_attributes, add_attachment
+    add_tag, add_attributes, add_attachment, ArtifactType
 )
+
 
 def test_dynamic_metadata():
     set_name("Dynamic Test Name")
@@ -282,7 +222,8 @@ def test_dynamic_metadata():
         add_attachment(
             result.screenshot,
             name="test_screenshot",
-            mime_type="image/png"
+            mime_type="image/png",
+            artifact_type=ArtifactType.SCREENSHOT
         )
 
     add_attributes(
@@ -291,27 +232,13 @@ def test_dynamic_metadata():
     )
 ```
 
-### Convenience Decorators
-
-```python
-from proofy import critical, smoke, regression
-
-@critical  # Same as @severity("critical")
-@smoke     # Same as @tags("smoke")
-def test_critical_smoke():
-    pass
-
-@regression  # Same as @tags("regression")
-def test_regression_case():
-    pass
-```
-
 ## Attachments
 
 Add files to test results for better debugging:
 
 ```python
-from proofy import add_attachment
+from proofy import add_attachment, ArtifactType
+
 
 def test_with_attachments():
     # Your test code
@@ -319,68 +246,8 @@ def test_with_attachments():
     save_logs("test.log")
 
     # Add attachments
-    add_attachment("failure.png", name="Failure Screenshot")
+    add_attachment("failure.png", name="Failure Screenshot", artifact_type=ArtifactType.SCREENSHOT)
     add_attachment("test.log", name="Test Logs", mime_type="text/plain")
-```
-
-## Integration Examples
-
-### Selenium Tests
-
-```python
-import pytest
-from selenium import webdriver
-from proofy import add_attachment, set_severity, tags
-
-class TestWebApp:
-    @pytest.fixture
-    def driver(self):
-        driver = webdriver.Chrome()
-        yield driver
-        driver.quit()
-
-    @set_severity("critical")
-    @tags("ui", "smoke")
-    def test_login_page(self, driver):
-        driver.get("https://app.example.com/login")
-
-        # Test logic
-        assert "Login" in driver.title
-
-        # Add screenshot on failure
-        if hasattr(self, '_pytest_failed'):
-            screenshot = driver.get_screenshot_as_png()
-            with open("login_failure.png", "wb") as f:
-                f.write(screenshot)
-            add_attachment("login_failure.png", name="Login Failure")
-```
-
-### API Tests
-
-```python
-import requests
-from proofy import description, add_attributes, add_attachment
-
-@description("Test user creation API endpoint")
-def test_create_user_api():
-    response = requests.post("/api/users", json={
-        "name": "Test User",
-        "email": "test@example.com"
-    })
-
-    # Add response details as attributes
-    add_attributes(
-        status_code=response.status_code,
-        response_time=response.elapsed.total_seconds(),
-        endpoint="/api/users"
-    )
-
-    # Save response for debugging
-    with open("api_response.json", "w") as f:
-        f.write(response.text)
-    add_attachment("api_response.json", name="API Response")
-
-    assert response.status_code == 201
 ```
 
 ## Troubleshooting
@@ -394,14 +261,8 @@ def test_create_user_api():
    curl -H "Authorization: Bearer YOUR_TOKEN" https://api.proofy.dev/health
    ```
 
-2. **Connection Issues**
+2. **Large Test Suites**
 
-   ```bash
-   # Test with increased timeout
-   pytest --proofy-timeout 60
-   ```
-
-3. **Large Test Suites**
    ```bash
    # Use batch mode with larger batches
    pytest --proofy-mode batch --proofy-batch-size 100
@@ -409,15 +270,11 @@ def test_create_user_api():
 
 ### Debug Mode
 
-Enable debug output:
-
 ```bash
 pytest --proofy-mode lazy -v -s
 ```
 
 ### Local Backup
-
-Always create local backups:
 
 ```bash
 pytest --proofy-always-backup --proofy-output-dir ./test-results
@@ -432,32 +289,13 @@ Status mappings:
 
 ## Development
 
-### Installation for Development
-
 ```bash
-git clone <repository>
-cd pytest-proofy
-
-# Install in development mode
-pip install -e .[dev]
-
-# Run tests
-pytest tests/
-
-# Type checking
-mypy pytest_proofy/
-
-# Linting
-ruff check pytest_proofy/
-```
-
-### Testing the Plugin
-
-```bash
-# Test with a simple test file
-pytest tests/test_example.py --proofy-mode lazy -v
+# In monorepo root
+uv venv .venv && source .venv/bin/activate
+uv pip install -e ../proofy-commons -e .[dev]
+uv run -q pytest -n auto
 ```
 
 ## License
 
-MIT License - see [LICENSE](../LICENSE) file for details.
+Apache-2.0 — see [LICENSE](../LICENSE) file for details.

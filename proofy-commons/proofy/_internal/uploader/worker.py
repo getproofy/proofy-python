@@ -121,7 +121,7 @@ class UploaderWorker:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run_loop, daemon=True, name="ProofyUploader")
         self._thread.start()
-        logger.info("Uploader worker started")
+        logger.debug("Uploader worker started")
 
     def stop(self, timeout: float | None = 10.0) -> None:
         """Stop the worker thread gracefully.
@@ -133,7 +133,7 @@ class UploaderWorker:
             logger.debug("Worker not running")
             return
 
-        logger.info("Stopping uploader worker...")
+        logger.debug("Stopping uploader worker...")
         # Send stop job
         self.queue.put(StopJob())
         self._stop_event.set()
@@ -144,7 +144,7 @@ class UploaderWorker:
         if self._thread.is_alive():
             logger.warning(f"Worker did not stop within {timeout}s")
         else:
-            logger.info("Uploader worker stopped")
+            logger.debug("Uploader worker stopped")
 
     def _run_loop(self) -> None:
         """Run the asyncio event loop in this thread."""
@@ -242,7 +242,7 @@ class UploaderWorker:
 
             # Wait for all active tasks to complete before shutting down
             if active_tasks:
-                logger.info(f"Waiting for {len(active_tasks)} active tasks to complete...")
+                logger.debug(f"Waiting for {len(active_tasks)} active tasks to complete...")
                 await asyncio.gather(*active_tasks, return_exceptions=self.fail_open)
 
         finally:

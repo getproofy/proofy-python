@@ -11,6 +11,7 @@ from typing import IO, Any, Literal, cast
 
 import httpx
 
+from ..logging_scopes import httpx_debug_only_here
 from ..models import ResultStatus, RunStatus
 from .base import (
     ArtifactType,
@@ -171,13 +172,14 @@ class Client:
 
         while attempt <= (self.retry_config.max_retries if retry else 0):
             try:
-                response = self._client.request(
-                    method=method,
-                    url=url,
-                    json=body,
-                    content=content,
-                    headers=merged_headers,
-                )
+                with httpx_debug_only_here():
+                    response = self._client.request(
+                        method=method,
+                        url=url,
+                        json=body,
+                        content=content,
+                        headers=merged_headers,
+                    )
 
                 # Check if we should retry based on status code
                 if (
@@ -440,13 +442,15 @@ class Client:
 
         with httpx.Client(timeout=self.config.timeout) as upload_client:
             if isinstance(data, Path):
-                with data.open("rb") as f:
+                with data.open("rb") as f, httpx_debug_only_here():
                     return upload_client.put(url, content=f, headers=headers or {})
             elif isinstance(data, bytes):
-                return upload_client.put(url, content=data, headers=headers or {})
+                with httpx_debug_only_here():
+                    return upload_client.put(url, content=data, headers=headers or {})
             else:
                 # File-like object
-                return upload_client.put(url, content=data, headers=headers or {})
+                with httpx_debug_only_here():
+                    return upload_client.put(url, content=data, headers=headers or {})
 
     def upload_artifact(
         self,

@@ -211,14 +211,13 @@ class ResultsHandler:
             if not self.queue.join(timeout=30.0):
                 logger.warning("Upload queue did not drain within 30s")
 
-        # Get final run attributes (without stats - backend calculates them)
-        session = self.context.session_ctx
-        final_attrs = session.run_attributes.copy() if session else {}
+        # Get final run attributes
+        final_attrs = self.context.get_run_attributes().copy()
 
         try:
             self.client.update_run(
                 run_id=run_id,
-                name=self.context.session_ctx.run_name,
+                name=self.context.get_run_name(),
                 status=RunStatus.FINISHED,
                 ended_at=now_rfc3339(),
                 attributes=final_attrs,
@@ -235,14 +234,13 @@ class ResultsHandler:
             # Log final metrics
             if hasattr(self.worker, "get_metrics"):
                 metrics = self.worker.get_metrics()
-                logger.info(f"Uploader metrics: {metrics}")
+                logger.debug(f"Uploader metrics: {metrics}")
 
         self.context.end_session()
 
     # --- Result handling ---
     def on_test_started(self, result: TestResult) -> None:
         """Handle test start: create server-side result in live mode."""
-
         try:
             if not self.client or self.mode != "live":
                 return
