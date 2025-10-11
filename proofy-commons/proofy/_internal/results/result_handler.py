@@ -28,7 +28,7 @@ from ..uploader import UploaderWorker, UploadQueue
 
 _DEFAULT_BATCH_SIZE = 100
 
-logger = logging.getLogger("ProofyConductor")
+logger = logging.getLogger("ProofyResultsHandler")
 
 
 class ResultsHandler:
@@ -208,7 +208,8 @@ class ResultsHandler:
         if not self.client:
             return
         if not run_id:
-            raise RuntimeError("Run ID not found. Make sure to call start_run() first.")
+            logger.error("Run ID not found. Make sure to call start_run() first.")
+            return
         try:
             self.flush_results()
         except Exception as e:
@@ -277,7 +278,7 @@ class ResultsHandler:
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
 
-    def send_test_result(self, result: TestResult) -> int:
+    def send_test_result(self, result: TestResult) -> int | None:
         try:
             response = self.client.create_result(
                 result.run_id,
@@ -298,13 +299,14 @@ class ResultsHandler:
                 )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
-            raise RuntimeError(f"Failed to send result for run {result.run_id}: {e}") from e
+            logger.error(f"Failed to send result for run {result.run_id}: {e}")
+            return None
         else:
             result.reporting_status = ReportingStatus.INITIALIZED
             result.result_id = result_id
             return result_id
 
-    def update_test_result(self, result: TestResult) -> None:
+    def update_test_result(self, result: TestResult) -> bool:
         try:
             self.client.update_result(
                 result.run_id,
@@ -317,36 +319,27 @@ class ResultsHandler:
             )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED
-            raise RuntimeError(
-                f"Failed to update result {result.result_id} for run {result.run_id}: {e}"
-            ) from e
+            logger.error(f"Failed to update result {result.result_id} for run {result.run_id}: {e}")
+            return False
         else:
             result.reporting_status = ReportingStatus.FINISHED
+            return True
 
     def _store_result_live(self, result: TestResult) -> None:
         if not result.result_id:
-            try:
-                result_id = self.send_test_result(result)
+            result_id = self.send_test_result(result)
+            if result_id is not None:
                 result.result_id = result_id
                 result.reporting_status = ReportingStatus.INITIALIZED
-            except Exception as e:
-                logger.error(f"Failed to send result in live mode: {e}")
-                raise RuntimeError(f"Failed to send result in live mode: {e}") from e
             return None
 
         # Update at finish
         if result.result_id and result.reporting_status == ReportingStatus.INITIALIZED:
-            try:
-                self.update_test_result(result)
-                self._upload_artifacts(result, best_effort=False, mode="live")
-            except Exception as e:
-                result.reporting_status = ReportingStatus.FAILED
-                logger.error(f"Failed to send result in live mode: {e}")
-                raise RuntimeError(f"Failed to send result in live mode: {e}") from e
-            else:
+            ok = self.update_test_result(result)
+            self._upload_artifacts(result, best_effort=False, mode="live")
+            if ok:
                 result.reporting_status = ReportingStatus.FINISHED
-            finally:
-                self.context.finish_test(result=result)
+            self.context.finish_test(result=result)
 
     def _store_result_lazy(self, result: TestResult) -> None:
         self.context.finish_test(result=result)
@@ -354,14 +347,12 @@ class ResultsHandler:
     def send_result_lazy(self) -> None:
         results = self.context.get_results()
         for result in results.values():
-            try:
-                self.send_test_result(result)
-            except Exception as e:
+            result_id = self.send_test_result(result)
+            if result_id is None:
                 result.reporting_status = ReportingStatus.FAILED
-                logger.error(f"Failed to send result in lazy mode: {e}")
             else:
                 result.reporting_status = ReportingStatus.FINISHED
-                self._upload_artifacts(result, best_effort=True, mode="lazy")
+            self._upload_artifacts(result, best_effort=True, mode="lazy")
 
     def _store_result_batch(self, result: TestResult) -> None:
         self._batch_results.append(result.id)
@@ -377,14 +368,12 @@ class ResultsHandler:
             if result is None:
                 logger.warning("Skipping missing result %s during batch send.", id_)
                 continue
-            try:
-                self.send_test_result(result)
-            except Exception as e:
+            result_id = self.send_test_result(result)
+            if result_id is None:
                 result.reporting_status = ReportingStatus.FAILED
-                logger.error(f"Failed to send result in batch mode: {e}")
             else:
                 result.reporting_status = ReportingStatus.FINISHED
-                self._upload_artifacts(result, best_effort=True, mode="batch")
+            self._upload_artifacts(result, best_effort=True, mode="batch")
         self._batch_results = []
 
     def _resolve_batch_size(self) -> int:
@@ -415,18 +404,12 @@ class ResultsHandler:
         try:
             self.artifacts.upload_traceback(result)
         except Exception as exc:
-            if best_effort:
-                logger.error(f"Failed to upload traceback in {mode} mode: {exc}")
-            else:
-                raise
+            logger.error(f"Failed to upload traceback in {mode} mode: {exc}")
         for attachment in result.attachments:
             try:
                 self.artifacts.upload_attachment(result, attachment)
             except Exception as exc:
-                if best_effort:
-                    logger.error(f"Failed to upload attachment in {mode} mode: {exc}")
-                else:
-                    raise
+                logger.error(f"Failed to upload attachment in {mode} mode: {exc}")
 
     def flush_results(self) -> None:
         if self.mode == "batch":

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Generator
 from datetime import datetime, timezone
@@ -25,6 +26,8 @@ from .config import (
     resolve_options,
     setup_pytest_ini_options,
 )
+
+logger = logging.getLogger("ProofyPytestPlugin")
 
 
 class ProofyPytestPlugin:
@@ -191,7 +194,7 @@ class ProofyPytestPlugin:
         self.config.run_id = self.run_id  # type: ignore[attr-defined]
 
         if not self.run_id and self.results_handler.client:
-            raise RuntimeError("Run ID not found. Make sure to call start_run() first.")
+            logger.error("Run ID not found after start_run; proceeding without server sync.")
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_protocol(self, item: pytest.Item):
@@ -231,7 +234,8 @@ class ProofyPytestPlugin:
 
         # Create result if not exists yet
         if not result:
-            raise RuntimeError(f"Result not found for test {self._get_test_id(item)}")
+            logger.error("Result not found for test %s", self._get_test_id(item))
+            return
 
         if report.failed and getattr(call, "excinfo", None) is not None:
             result.message = call.excinfo.exconly()
