@@ -7,6 +7,7 @@ and async queue/worker pattern for efficient background uploads.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -24,6 +25,8 @@ from ...core.utils import now_rfc3339
 from ..artifacts import ArtifactUploader
 from ..context import get_context_service
 from ..uploader import UploaderWorker, UploadQueue
+
+_DEFAULT_BATCH_SIZE = 100
 
 logger = logging.getLogger("ProofyConductor")
 
@@ -79,6 +82,8 @@ class ResultsHandler:
         else:
             self.artifacts = None
 
+        self._batch_size = self._resolve_batch_size()
+
     def get_result(self, id: str) -> TestResult | None:
         return self.context.get_result(id)
 
@@ -101,12 +106,14 @@ class ResultsHandler:
             return run_id
 
         if run_id:
-            raise RuntimeError(f"Update run {run_id} is not implemented yet")
-            self.client.update_run(
-                run_id=run_id,
-                status=RunStatus.STARTED,
-                attributes=run_attributes,
-            )
+            try:
+                self.client.update_run(
+                    run_id=run_id,
+                    status=RunStatus.STARTED,
+                    attributes=run_attributes,
+                )
+            except Exception as e:
+                raise RuntimeError(f"Failed to update run {run_id}: {e}") from e
         else:
             try:
                 response = self.client.create_run(
@@ -193,6 +200,8 @@ class ResultsHandler:
         self,
         *,
         run_id: int | None,
+        status: RunStatus = RunStatus.FINISHED,
+        error_message: str | None = None,
     ) -> None:
         session = self.context.session_ctx
         run_id = run_id or (session.run_id if session else None)
@@ -208,17 +217,21 @@ class ResultsHandler:
         # Wait for queue to drain if using async worker
         if self.queue:
             logger.debug("Waiting for upload queue to drain...")
-            if not self.queue.join(timeout=30.0):
-                logger.warning("Upload queue did not drain within 30s")
+            if not self.queue.join(timeout=60.0):
+                logger.warning("Upload queue did not drain within 60s")
 
-        # Get final run attributes
+        # Merge final run attributes
+        if error_message is not None:
+            with contextlib.suppress(Exception):
+                self.context.set_run_attribute("__proofy_error_message", error_message)
+
         final_attrs = self.context.get_run_attributes().copy()
 
         try:
             self.client.update_run(
                 run_id=run_id,
                 name=self.context.get_run_name(),
-                status=RunStatus.FINISHED,
+                status=status,
                 ended_at=now_rfc3339(),
                 attributes=final_attrs,
             )
@@ -287,7 +300,7 @@ class ResultsHandler:
             result.reporting_status = ReportingStatus.FAILED
             raise RuntimeError(f"Failed to send result for run {result.run_id}: {e}") from e
         else:
-            result.reporting_status = ReportingStatus.FINISHED
+            result.reporting_status = ReportingStatus.INITIALIZED
             result.result_id = result_id
             return result_id
 
@@ -325,12 +338,7 @@ class ResultsHandler:
         if result.result_id and result.reporting_status == ReportingStatus.INITIALIZED:
             try:
                 self.update_test_result(result)
-
-                if self.artifacts:
-                    self.artifacts.upload_traceback(result)
-                    for attachment in result.attachments:
-                        self.artifacts.upload_attachment(result, attachment)
-
+                self._upload_artifacts(result, best_effort=False, mode="live")
             except Exception as e:
                 result.reporting_status = ReportingStatus.FAILED
                 logger.error(f"Failed to send result in live mode: {e}")
@@ -353,22 +361,12 @@ class ResultsHandler:
                 logger.error(f"Failed to send result in lazy mode: {e}")
             else:
                 result.reporting_status = ReportingStatus.FINISHED
-                if self.artifacts:
-                    try:
-                        self.artifacts.upload_traceback(result)
-                    except Exception as e:
-                        logger.error(f"Failed to upload traceback in lazy mode: {e}")
-                    for attachment in result.attachments:
-                        try:
-                            self.artifacts.upload_attachment(result, attachment)
-                        except Exception as e:
-                            logger.error(f"Failed to upload attachment in lazy mode: {e}")
+                self._upload_artifacts(result, best_effort=True, mode="lazy")
 
     def _store_result_batch(self, result: TestResult) -> None:
         self._batch_results.append(result.id)
         self.context.finish_test(result=result)
-        batch_size = os.environ.get("PROOFY_BATCH_SIZE", 100)
-        if len(self._batch_results) >= int(batch_size):
+        if len(self._batch_results) >= self._batch_size:
             self.send_batch()
 
     def send_batch(self) -> None:
@@ -376,6 +374,9 @@ class ResultsHandler:
             return
         for id_ in self._batch_results:
             result = self.get_result(id_)
+            if result is None:
+                logger.warning("Skipping missing result %s during batch send.", id_)
+                continue
             try:
                 self.send_test_result(result)
             except Exception as e:
@@ -383,17 +384,49 @@ class ResultsHandler:
                 logger.error(f"Failed to send result in batch mode: {e}")
             else:
                 result.reporting_status = ReportingStatus.FINISHED
-                if self.artifacts:
-                    try:
-                        self.artifacts.upload_traceback(result)
-                    except Exception as e:
-                        logger.error(f"Failed to upload traceback in batch mode: {e}")
-                    for attachment in result.attachments:
-                        try:
-                            self.artifacts.upload_attachment(result, attachment)
-                        except Exception as e:
-                            logger.error(f"Failed to upload attachment in batch mode: {e}")
+                self._upload_artifacts(result, best_effort=True, mode="batch")
         self._batch_results = []
+
+    def _resolve_batch_size(self) -> int:
+        raw = os.environ.get("PROOFY_BATCH_SIZE")
+        if raw is None:
+            return _DEFAULT_BATCH_SIZE
+        try:
+            value = int(raw)
+        except ValueError:
+            logger.warning(
+                "Invalid PROOFY_BATCH_SIZE value %r. Falling back to %d.",
+                raw,
+                _DEFAULT_BATCH_SIZE,
+            )
+            return _DEFAULT_BATCH_SIZE
+        if value <= 0:
+            logger.warning(
+                "PROOFY_BATCH_SIZE must be positive. Got %r, using %d instead.",
+                raw,
+                _DEFAULT_BATCH_SIZE,
+            )
+            return _DEFAULT_BATCH_SIZE
+        return value
+
+    def _upload_artifacts(self, result: TestResult, *, best_effort: bool, mode: str) -> None:
+        if not self.artifacts:
+            return
+        try:
+            self.artifacts.upload_traceback(result)
+        except Exception as exc:
+            if best_effort:
+                logger.error(f"Failed to upload traceback in {mode} mode: {exc}")
+            else:
+                raise
+        for attachment in result.attachments:
+            try:
+                self.artifacts.upload_attachment(result, attachment)
+            except Exception as exc:
+                if best_effort:
+                    logger.error(f"Failed to upload attachment in {mode} mode: {exc}")
+                else:
+                    raise
 
     def flush_results(self) -> None:
         if self.mode == "batch":

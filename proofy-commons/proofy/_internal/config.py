@@ -18,7 +18,7 @@ class ProofyConfig:
 
     # Core settings
     mode: Mode = "lazy"
-    api_base: str | None = None
+    api_base: str = "https://api.proofy.dev"
     token: str | None = None
     project_id: int | None = None
 
@@ -49,7 +49,7 @@ class ProofyConfig:
     retry_delay: float = 1.0
 
     # Upload settings
-    max_concurrent_uploads: int = 5
+    max_concurrent_uploads: int = 10
 
 
 __all__ = [
