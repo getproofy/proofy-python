@@ -43,19 +43,21 @@ class ResultsHandler:
         *,
         config: ProofyConfig,
         framework: str,
+        enable: bool = True,
     ) -> None:
         self.config = config
         self.mode = config.mode  # "live" | "lazy" | "batch"
         self.output_dir = Path(config.output_dir)
         self.project_id: int | None = config.project_id
         self.framework = framework
+        self.enable = enable
 
         # Initialize client, queue, and worker if API configured
         self.client: Client | None = None
         self.queue: UploadQueue | None = None
         self.worker: UploaderWorker | None = None
 
-        if config.api_base and config.token:
+        if config.api_base and config.token and enable:
             self.client = Client(
                 base_url=config.api_base, token=config.token, timeout=config.timeout_s
             )
@@ -422,6 +424,8 @@ class ResultsHandler:
 
     # --- Local backups ---
     def backup_results(self) -> None:
+        if not self.enable:
+            return
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
             results_file = self.output_dir / "results.json"

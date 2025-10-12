@@ -18,7 +18,7 @@ from proofy._internal.hooks.manager import reset_plugin_manager
 from proofy._internal.results import ResultsHandler
 
 # Import from proofy-commons
-from proofy.core.models import ResultStatus, RunStatus, TestResult
+from proofy.core.models import ReportingStatus, ResultStatus, RunStatus, TestResult
 from pytest import CallInfo
 
 from .config import (
@@ -33,7 +33,7 @@ logger = logging.getLogger("ProofyPytestPlugin")
 class ProofyPytestPlugin:
     """Main Proofy pytest plugin class."""
 
-    def __init__(self, config: ProofyConfig):
+    def __init__(self, config: ProofyConfig, collect_only: bool):
         self.config = config
         self.run_id: int | None = None
 
@@ -43,11 +43,13 @@ class ProofyPytestPlugin:
         self._terminal_summary = ""
         self._session_error_message: str | None = None
         self._had_collection_errors: bool = False
+        self._collect_only: bool = collect_only
 
         # Initialize results handler
         self.results_handler = ResultsHandler(
             config=config,
             framework="pytest",
+            enable=not collect_only,
         )
 
     def _get_test_id(self, item: pytest.Item) -> str:
@@ -321,6 +323,18 @@ class ProofyPytestPlugin:
         if self.config.always_backup:
             self.results_handler.backup_results()
 
+        try:
+            results = self.results_handler.context.get_results()
+            uploaded_ok = sum(
+                1
+                for r in results.values()
+                if getattr(r, "reporting_status", None) == ReportingStatus.FINISHED
+            )
+        except Exception:
+            uploaded_ok = 0
+
+        self._terminal_summary += f"Uploaded {uploaded_ok} result(s) to Proofy\n"
+
         self.results_handler.end_session()
 
     def pytest_deselected(self, items: list[pytest.Item]) -> None:
@@ -397,9 +411,10 @@ def pytest_configure(config: pytest.Config) -> None:
     config._proofy_hooks = _proofy_hooks_instance
     pm.register(_proofy_hooks_instance, "pytest_proofy_hooks")
 
+    collect_only = config.getoption("collectonly", False)
     proofy_config = resolve_options(config)
 
-    _plugin_instance = ProofyPytestPlugin(proofy_config)
+    _plugin_instance = ProofyPytestPlugin(proofy_config, collect_only)
     config._proofy = _plugin_instance
     config.pluginmanager.register(_plugin_instance, "proofy_plugin")
     pm.register(_plugin_instance, "pytest_proofy")

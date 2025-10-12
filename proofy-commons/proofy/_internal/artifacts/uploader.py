@@ -17,7 +17,7 @@ from ...core.models import Attachment, TestResult
 from ..uploader import UploadArtifactJob, UploadQueue
 from .attachments_cache import is_cached_path
 
-logger = logging.getLogger("ProofyConductor")
+logger = logging.getLogger("ProofyArtifactUploader")
 
 
 class ArtifactUploader:
