@@ -114,18 +114,20 @@ class ProofyPytestPlugin:
             name = getattr(m, "name", None)
             if not isinstance(name, str):
                 continue
-            if name == "parametrize":
+            if name in ("parametrize", "proofy_attributes", "skip"):
                 continue
             if name.startswith("__proofy_"):
-                continue
-            if name == "proofy_attributes":
                 continue
 
             args = [repr(a) for a in (getattr(m, "args", []) or [])]
             kwargs_items = (getattr(m, "kwargs", {}) or {}).items()
             kwargs = [f"{k}={repr(v)}" for k, v in kwargs_items]
-            params = ", ".join(args + kwargs)
-            marker_str = f"{name}({params})"
+
+            if not args and not kwargs:
+                marker_str = name
+            else:
+                params = ", ".join(args + kwargs)
+                marker_str = f"{name}({params})"
 
             test_list = formatted + [marker_str]
             test_json = json.dumps(test_list, ensure_ascii=False)
@@ -246,6 +248,35 @@ class ProofyPytestPlugin:
                 call.excinfo.value, AssertionError
             ):
                 status = ResultStatus.BROKEN
+
+        # Capture skip reason/message when a test is skipped
+        if status == ResultStatus.SKIPPED and not result.message:
+            skip_message: str | None = None
+            try:
+                longrepr = getattr(report, "longrepr", None)
+                if isinstance(longrepr, tuple | list) and len(longrepr) >= 3:
+                    skip_message = str(longrepr[2])
+                elif isinstance(longrepr, str) and longrepr:
+                    skip_message = longrepr
+                if not skip_message:
+                    longreprtext = getattr(report, "longreprtext", None)
+                    if isinstance(longreprtext, str) and longreprtext:
+                        text = longreprtext.strip()
+                        if text.lower().startswith("skipped"):
+                            parts = text.split(":", 1)
+                            skip_message = parts[1].strip() if len(parts) == 2 else text
+                        else:
+                            skip_message = text
+                if not skip_message and getattr(call, "excinfo", None) is not None:
+                    try:
+                        skip_message = str(call.excinfo.value)
+                    except Exception:
+                        skip_message = None
+            except Exception:
+                skip_message = None
+
+            if skip_message:
+                result.message = skip_message
 
         if report.when == "setup":
             result.status = status
