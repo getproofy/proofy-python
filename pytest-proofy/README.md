@@ -76,7 +76,7 @@ proofy_run_attributes = environment=staging,version=1.2.3
 
 ## Reporting Modes
 
-### Live Mode
+### Live Mode (Default)
 
 Real-time test reporting with immediate server updates:
 
@@ -89,7 +89,7 @@ pytest --proofy-mode live
 - Uploads attachments immediately
 - Best for interactive development and debugging
 
-### Lazy Mode (Default)
+### Lazy Mode
 
 Sends complete results after test execution:
 

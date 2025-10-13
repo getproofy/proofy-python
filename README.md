@@ -41,7 +41,7 @@ Below are the global configuration parameters supported by Proofy integrations. 
 
 | Parameter          | Type                       | Default            | Description                                               |
 | ------------------ | -------------------------- | ------------------ | --------------------------------------------------------- |
-| mode               | enum[str]: live/batch/lazy | lazy               | Delivery mode controlling when results are sent           |
+| mode               | enum[str]: live/batch/lazy | live               | Delivery mode controlling when results are sent           |
 | api_base           | str                        | —                  | Base URL of the Proofy API (e.g., https://api.proofy.dev) |
 | token              | str                        | —                  | Bearer token for API authentication                       |
 | project_id         | int                        | —                  | Proofy project identifier                                 |
