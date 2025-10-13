@@ -7,7 +7,6 @@ Pytest plugin for Proofy test reporting with real-time results and rich metadata
 - **Multiple Reporting Modes**: Live, Lazy, and Batch reporting
 - **Rich Metadata**: Decorators for test description, severity, tags, and custom attributes
 - **Attachment Support**: Add screenshots, logs, and other files to test results
-- **Hook System**: Extensible plugin architecture via proofy
 - **Flexible Configuration**: CLI, environment variables, and pytest.ini support
 - **Local Backup**: Automatic fallback to local JSON export
 
@@ -22,10 +21,8 @@ pip install pytest-proofy
 ### Basic Usage
 
 ```bash
-pytest --proofy-api-base https://api.proofy.dev \
-       --proofy-token YOUR_TOKEN \
-       --proofy-project-id 123 \
-       --proofy-mode live
+pytest --proofy-token YOUR_TOKEN \
+       --proofy-project-id 123
 ```
 
 ### Configuration

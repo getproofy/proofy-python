@@ -56,7 +56,7 @@ Below are the global configuration parameters supported by Proofy integrations. 
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.10+
 - uv (recommended) or pip
 
 ### Setup

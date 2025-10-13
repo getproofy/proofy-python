@@ -29,7 +29,7 @@ from proofy import (
     set_run_attribute, add_run_attributes, get_run_attributes,
 
     # Attachments
-    add_attachment,
+    add_attachment, add_data
 
     # Context info
     get_current_run_id, get_current_test_id,
@@ -123,6 +123,18 @@ def add_attachment(
     name: str,
     mime_type: Optional[str] = None,
     test_id: Optional[str] = None,
+) -> None
+```
+
+```python
+def add_data(
+    data: str | bytes | bytearray | dict[str, Any],
+    *,
+    name: str,
+    mime_type: Optional[str] = None,
+    extension: Optional[str] = None,
+    artifact_type: ArtifactType | int = ArtifactType.ATTACHMENT,
+    encoding: str = "utf-8",
 ) -> None
 ```
 
