@@ -197,7 +197,7 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
 
 def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     """Setup pytest.ini configuration options."""
-    parser.addini("proofy_mode", "Proofy delivery mode", default="lazy")
+    parser.addini("proofy_mode", "Proofy delivery mode", default="live")
     parser.addini(
         "proofy_api_base",
         "Proofy API base URL",

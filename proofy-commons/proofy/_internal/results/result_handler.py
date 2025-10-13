@@ -28,7 +28,7 @@ from ..uploader import UploaderWorker, UploadQueue
 
 _DEFAULT_BATCH_SIZE = 100
 
-logger = logging.getLogger("ProofyResultsHandler")
+logger = logging.getLogger("Proofy")
 
 
 class ResultsHandler:
@@ -57,22 +57,36 @@ class ResultsHandler:
         self.queue: UploadQueue | None = None
         self.worker: UploaderWorker | None = None
 
-        if config.api_base and config.token and enable:
-            self.client = Client(
-                base_url=config.api_base, token=config.token, timeout=config.timeout_s
-            )
-            # Initialize upload queue and worker for async artifact uploads
-            self.queue = UploadQueue(maxsize=1000)
-            self.worker = UploaderWorker(
-                queue=self.queue,
-                base_url=config.api_base,
-                token=config.token,
-                timeout=config.timeout_s,
-                max_retries=3,
-                fail_open=True,
-                max_concurrent_uploads=config.max_concurrent_uploads,
-            )
-            self.worker.start()
+        if enable:
+            missing_config = []
+            if not config.api_base:
+                missing_config.append("api_base")
+            if not config.token:
+                missing_config.append("token")
+            if not config.project_id:
+                missing_config.append("project_id")
+            if missing_config:
+                raise ValueError(
+                    f"Missing Proofy required configuration: {', '.join(missing_config)}"
+                )
+            if config.api_base and config.token and config.project_id:
+                self.client = Client(
+                    base_url=config.api_base,
+                    token=config.token,
+                    timeout=config.timeout_s,
+                )
+                # Initialize upload queue and worker for async artifact uploads
+                self.queue = UploadQueue(maxsize=1000)
+                self.worker = UploaderWorker(
+                    queue=self.queue,
+                    base_url=config.api_base,
+                    token=config.token,
+                    timeout=config.timeout_s,
+                    max_retries=3,
+                    fail_open=True,
+                    max_concurrent_uploads=config.max_concurrent_uploads,
+                )
+                self.worker.start()
 
         # In-process accumulation for lazy/batch
         self._batch_results: list[str] = []  # test IDs
