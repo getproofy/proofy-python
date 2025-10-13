@@ -21,7 +21,7 @@ from ...core.models import (
     TestResult,
 )
 from ...core.system_info import collect_system_attributes, get_framework_version
-from ...core.utils import now_rfc3339
+from ...core.utils import format_datetime_rfc3339, now_rfc3339
 from ..artifacts import ArtifactUploader
 from ..context import get_context_service
 from ..uploader import UploaderWorker, UploadQueue
@@ -69,7 +69,7 @@ class ResultsHandler:
                 logger.warning(
                     f"Missing Proofy required configuration: {', '.join(missing_config)}"
                 )
-            if config.api_base and config.token and config.project_id:
+            if config.api_base and config.token and config.project_id is not None:
                 self.client = Client(
                     base_url=config.api_base,
                     token=config.token,
@@ -94,7 +94,7 @@ class ResultsHandler:
 
         # Initialize artifact uploader with queue (if available)
         if self.queue:
-            self.artifacts = ArtifactUploader(queue=self.queue)
+            self.artifacts: ArtifactUploader | None = ArtifactUploader(queue=self.queue)
         else:
             self.artifacts = None
 
@@ -118,7 +118,7 @@ class ResultsHandler:
         run_name = session.run_name
         run_attributes = session.run_attributes
 
-        if not self.client or not self.project_id:
+        if not self.client:
             return run_id
 
         if run_id:
@@ -132,9 +132,12 @@ class ResultsHandler:
                 raise RuntimeError(f"Failed to update run {run_id}: {e}") from e
         else:
             try:
+                if self.project_id is None:
+                    raise RuntimeError("Proofy project_id is required to create a run")
+
                 response = self.client.create_run(
                     project_id=self.project_id,
-                    name=run_name,
+                    name=run_name or f"Run {now_rfc3339()}",
                     started_at=now_rfc3339(),
                     attributes=run_attributes,
                 )
@@ -189,7 +192,7 @@ class ResultsHandler:
         # Determine effective run name
         effective_run_name = None
         if config and getattr(config, "run_name", None):
-            effective_run_name = config.run_name  # type: ignore[attr-defined]
+            effective_run_name = config.run_name
         else:
             # Default fallback, includes framework and timestamp
             effective_run_name = f"Test run {self.framework}-{now_rfc3339()}"
@@ -201,7 +204,7 @@ class ResultsHandler:
             system_attrs["__proofy_framework_version"] = framework_version
         user_attrs = {}
         if config and getattr(config, "run_attributes", None):
-            user_attrs = config.run_attributes or {}  # type: ignore[attr-defined]
+            user_attrs = config.run_attributes or {}
         prepared_run_attrs = {**system_attrs, **user_attrs}
 
         # Initialize session with prepared name/attributes
@@ -295,14 +298,25 @@ class ResultsHandler:
             raise ValueError(f"Invalid mode: {self.mode}")
 
     def send_test_result(self, result: TestResult) -> int | None:
+        if not self.client:
+            return None
+        if result.run_id is None:
+            logger.error("Cannot send test result without run_id")
+            return None
         try:
+            # Convert datetime to RFC3339 string
+            started_at_str = (
+                format_datetime_rfc3339(result.started_at) if result.started_at else None
+            )
+            ended_at_str = format_datetime_rfc3339(result.ended_at) if result.ended_at else None
+
             response = self.client.create_result(
                 result.run_id,
                 name=result.name,
                 path=result.path,
                 status=result.status,
-                started_at=result.started_at,
-                ended_at=result.ended_at,
+                started_at=started_at_str,
+                ended_at=ended_at_str,
                 duration_ms=result.effective_duration_ms,
                 message=result.message,
                 attributes=result.merge_metadata(),
@@ -323,12 +337,20 @@ class ResultsHandler:
             return result_id
 
     def update_test_result(self, result: TestResult) -> bool:
+        if not self.client:
+            return False
+        if result.run_id is None or result.result_id is None:
+            logger.error("Cannot update test result without run_id and result_id")
+            return False
         try:
+            # Convert datetime to RFC3339 string
+            ended_at_str = format_datetime_rfc3339(result.ended_at) if result.ended_at else None
+
             self.client.update_result(
                 result.run_id,
                 result.result_id,
                 status=result.status,
-                ended_at=result.ended_at,
+                ended_at=ended_at_str,
                 duration_ms=result.effective_duration_ms,
                 message=result.message,
                 attributes=result.merge_metadata(),
@@ -352,7 +374,7 @@ class ResultsHandler:
         # Update at finish
         if result.result_id and result.reporting_status == ReportingStatus.INITIALIZED:
             ok = self.update_test_result(result)
-            self._upload_artifacts(result, best_effort=False, mode="live")
+            self._upload_artifacts(result, mode="live")
             if ok:
                 result.reporting_status = ReportingStatus.FINISHED
             self.context.finish_test(result=result)
@@ -368,7 +390,7 @@ class ResultsHandler:
                 result.reporting_status = ReportingStatus.FAILED
             else:
                 result.reporting_status = ReportingStatus.FINISHED
-            self._upload_artifacts(result, best_effort=True, mode="lazy")
+            self._upload_artifacts(result, mode="lazy")
 
     def _store_result_batch(self, result: TestResult) -> None:
         self._batch_results.append(result.id)
@@ -389,7 +411,7 @@ class ResultsHandler:
                 result.reporting_status = ReportingStatus.FAILED
             else:
                 result.reporting_status = ReportingStatus.FINISHED
-            self._upload_artifacts(result, best_effort=True, mode="batch")
+            self._upload_artifacts(result, mode="batch")
         self._batch_results = []
 
     def _resolve_batch_size(self) -> int:
@@ -414,7 +436,7 @@ class ResultsHandler:
             return _DEFAULT_BATCH_SIZE
         return value
 
-    def _upload_artifacts(self, result: TestResult, *, best_effort: bool, mode: str) -> None:
+    def _upload_artifacts(self, result: TestResult, *, mode: str) -> None:
         if not self.artifacts:
             return
         try:

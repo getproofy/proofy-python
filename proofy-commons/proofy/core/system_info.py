@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import platform
 import sys
+from importlib import metadata
+from importlib.metadata import PackageNotFoundError
 from typing import Any
 
 
@@ -30,25 +32,24 @@ def get_framework_version(framework: str) -> str | None:
     Returns:
         Version string or None if not available
     """
-    try:
-        if framework == "pytest":
-            import pytest
 
-            return pytest.__version__
-        elif framework == "unittest":
-            # unittest is built-in, use Python version
-            return f"{sys.version_info.major}.{sys.version_info.minor}"
-        elif framework == "behave":
-            import behave
+    if framework == "unittest":
+        # unittest is part of the standard library; we map to Python version.
+        return f"{sys.version_info.major}.{sys.version_info.minor}"
 
-            return behave.__version__
-        elif framework == "nose2":
-            import nose2
+    package_name = {
+        "pytest": "pytest",
+        "behave": "behave",
+        "nose2": "nose2",
+    }.get(framework)
 
-            return nose2.__version__
-    except (ImportError, AttributeError):
+    if not package_name:
         return None
-    return None
+
+    try:
+        return metadata.version(package_name)
+    except PackageNotFoundError:
+        return None
 
 
 __all__ = [

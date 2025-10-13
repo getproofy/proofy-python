@@ -31,10 +31,13 @@ def test_register_pytest_hooks_and_call_mark_attributes() -> None:
     # Mock pytest.mark.proofy_attributes since it's not registered in test environment
     from unittest.mock import patch
 
+    import pytest as _pytest
+
     # Create a mock mark object
     mock_mark = type("MockMark", (), {"name": "proofy_attributes", "kwargs": {"k": "v"}})()
 
-    with patch("pytest.mark.proofy_attributes", return_value=mock_mark):
+    # Patch the MarkGenerator object directly for cross-platform/pytest-version robustness
+    with patch.object(_pytest.mark, "proofy_attributes", return_value=mock_mark):
         marker = pm.hook.proofy_mark_attributes(attributes={"k": "v"})
         # pluggy returns a list of results (one per implementation)
         assert isinstance(marker, list)

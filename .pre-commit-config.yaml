@@ -21,6 +21,16 @@ repos:
             "--non-interactive",
             "--config-file",
             "pyproject.toml",
+            "proofy-commons/proofy",
+            "pytest-proofy/pytest_proofy",
           ]
-        files: ^(proofy-commons/proofy/core/(api|client)\.py)$
-        additional_dependencies: ["types-requests", "pytest", "pluggy", "httpx"]
+        pass_filenames: false
+        additional_dependencies:
+          [
+            "types-requests",
+            "pytest",
+            "pluggy",
+            "httpx",
+            "types-setuptools",
+            "mypy-extensions",
+          ]

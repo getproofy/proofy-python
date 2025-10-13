@@ -6,7 +6,7 @@ Shared components for Proofy Python testing framework integrations.
 
 `proofy-commons` provides the foundational components used by all Proofy framework adapters.
 
-Only the functions re-exported from `proofy.__init__` are part of the public API. Everything else is considered internal and may change without notice.
+Only the functions re-exported from `proofy` are part of the public API. Everything else is considered internal and may change without notice.
 
 ## Installation
 
@@ -14,7 +14,7 @@ Only the functions re-exported from `proofy.__init__` are part of the public API
 pip install proofy
 ```
 
-## Public API (from `proofy.__init__`)
+## Public API (from `proofy`)
 
 These are the only supported, stable entry points:
 

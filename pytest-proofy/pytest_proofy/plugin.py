@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from _pytest.reports import TestReport
 from proofy._internal.config import ProofyConfig
 from proofy._internal.hooks import get_plugin_manager, hookimpl
 from proofy._internal.hooks.manager import reset_plugin_manager
@@ -89,8 +88,8 @@ class ProofyPytestPlugin:
         }
         return mapping.get(outcome, ResultStatus.BROKEN)
 
-    def _get_attributes(self, item: pytest.Item) -> dict:
-        attributes = {}
+    def _get_attributes(self, item: pytest.Item) -> dict[str, Any]:
+        attributes: dict[str, Any] = {}
         for mark in item.iter_markers(name="proofy_attributes"):
             attributes.update(
                 {key: value for key, value in mark.kwargs.items() if key not in attributes}
@@ -195,13 +194,13 @@ class ProofyPytestPlugin:
         )
 
         self.run_id = self.results_handler.start_run()
-        self.config.run_id = self.run_id  # type: ignore[attr-defined]
+        self.config.run_id = self.run_id
 
         if not self.run_id and self.results_handler.client:
             logger.error("Run ID not found after start_run; proceeding without server sync.")
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_runtest_protocol(self, item: pytest.Item):
+    def pytest_runtest_protocol(self, item: pytest.Item) -> Generator[None, None, None]:
         """Called before each test is executed."""
         self._start_time = datetime.now(timezone.utc)
 
@@ -231,7 +230,7 @@ class ProofyPytestPlugin:
     ) -> Generator[None, None, None]:
         """Called to create test reports."""
         outcome = yield
-        report: TestReport = outcome.get_result()  # type: ignore[attr-defined]
+        report = outcome.get_result()  # type: ignore[attr-defined]
 
         status = self._outcome_to_status(report.outcome)
         result: TestResult | None = self.results_handler.get_result(self._get_test_id(item))
@@ -241,14 +240,13 @@ class ProofyPytestPlugin:
             logger.error("Result not found for test %s", self._get_test_id(item))
             return
 
-        if report.failed and getattr(call, "excinfo", None) is not None:
-            result.message = call.excinfo.exconly()
+        excinfo = getattr(call, "excinfo", None)
+        if report.failed and excinfo is not None:
+            result.message = excinfo.exconly()
             # TODO: handle multiple lines in traceback, add report.when to traceback
             result.traceback = report.longreprtext
 
-            if status != ResultStatus.SKIPPED and not isinstance(
-                call.excinfo.value, AssertionError
-            ):
+            if status != ResultStatus.SKIPPED and not isinstance(excinfo.value, AssertionError):
                 status = ResultStatus.BROKEN
 
         # Capture skip reason/message when a test is skipped
@@ -269,11 +267,13 @@ class ProofyPytestPlugin:
                             skip_message = parts[1].strip() if len(parts) == 2 else text
                         else:
                             skip_message = text
-                if not skip_message and getattr(call, "excinfo", None) is not None:
-                    try:
-                        skip_message = str(call.excinfo.value)
-                    except Exception:
-                        skip_message = None
+                if not skip_message:
+                    skip_excinfo = getattr(call, "excinfo", None)
+                    if skip_excinfo is not None:
+                        try:
+                            skip_message = str(skip_excinfo.value)
+                        except Exception:
+                            skip_message = None
             except Exception:
                 skip_message = None
 
@@ -290,16 +290,19 @@ class ProofyPytestPlugin:
         if report.when == "teardown":
             end_time = datetime.now(timezone.utc)
             result.ended_at = end_time
-            result.duration_ms = int((end_time - result.started_at).total_seconds() * 1000)
+            if result.started_at is not None:
+                result.duration_ms = int((end_time - result.started_at).total_seconds() * 1000)
             if (
                 status in (ResultStatus.FAILED, ResultStatus.BROKEN)
                 and result.status == ResultStatus.PASSED
             ):
                 result.status = status
 
-            if stdout := report.capstdout:  # type: ignore[attr-defined]
+            stdout = getattr(report, "capstdout", None)
+            if stdout:
                 result.stdout = stdout
-            if stderr := report.capstderr:
+            stderr = getattr(report, "capstderr", None)
+            if stderr:
                 result.stderr = stderr
 
             self.results_handler.on_test_finished(result=result)
@@ -340,17 +343,16 @@ class ProofyPytestPlugin:
     def pytest_deselected(self, items: list[pytest.Item]) -> None:
         self._num_deselected += len(items)
         for item in items:
-            try:
-                item._json_collectitem["deselected"] = True  # type: ignore[attr-defined]
-            except AttributeError:
-                continue
+            json_collectitem = getattr(item, "_json_collectitem", None)
+            if isinstance(json_collectitem, dict):
+                json_collectitem["deselected"] = True
 
     @pytest.hookimpl(trylast=True)
-    def pytest_terminal_summary(self, terminalreporter):
+    def pytest_terminal_summary(self, terminalreporter: pytest.TerminalReporter) -> None:
         terminalreporter.write_sep("-", "Proofy report")
         terminalreporter.write_line(str(self._terminal_summary))
 
-    def pytest_collectreport(self, report):
+    def pytest_collectreport(self, report: pytest.CollectReport) -> None:
         """Capture collection errors to mark run as aborted and store message."""
         try:
             failed = getattr(report, "failed", False)
@@ -408,14 +410,14 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "proofy_attributes: proofy attributes markers")
 
     _proofy_hooks_instance = PytestProofyHooks()
-    config._proofy_hooks = _proofy_hooks_instance
+    config._proofy_hooks = _proofy_hooks_instance  # type: ignore[attr-defined]
     pm.register(_proofy_hooks_instance, "pytest_proofy_hooks")
 
     collect_only = config.getoption("collectonly", False)
     proofy_config = resolve_options(config)
 
     _plugin_instance = ProofyPytestPlugin(proofy_config, collect_only)
-    config._proofy = _plugin_instance
+    config._proofy = _plugin_instance  # type: ignore[attr-defined]
     config.pluginmanager.register(_plugin_instance, "proofy_plugin")
     pm.register(_plugin_instance, "pytest_proofy")
 
@@ -434,9 +436,9 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_unconfigure(config: pytest.Config) -> None:
     plugin = getattr(config, "_proofy", None)
     if plugin is not None:
-        del config._proofy
+        del config._proofy  # type: ignore[attr-defined]
         config.pluginmanager.unregister(plugin, "proofy_plugin")
     hooks = getattr(config, "_proofy_hooks", None)
     if hooks is not None:
-        del config._proofy_hooks
+        del config._proofy_hooks  # type: ignore[attr-defined]
         reset_plugin_manager()
