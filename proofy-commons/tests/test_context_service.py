@@ -4,10 +4,10 @@ import io
 from pathlib import Path
 
 import pytest
-from proofy._impl.context.backend import ThreadLocalBackend
-from proofy._impl.context.service import ContextService
-from proofy._impl.hooks.manager import get_plugin_manager, reset_plugin_manager
-from proofy._impl.hooks.specs import hookimpl
+from proofy._internal.context.backend import ThreadLocalBackend
+from proofy._internal.context.service import ContextService
+from proofy._internal.hooks.manager import get_plugin_manager, reset_plugin_manager
+from proofy._internal.hooks.specs import hookimpl
 from proofy.core.models import TestResult
 
 

@@ -1,4 +1,4 @@
-"""Shared configuration models for Proofy integrations."""
+"""Public configuration models for Proofy integrations."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ class ProofyConfig:
     """
 
     # Core settings
-    mode: Mode = "lazy"
-    api_base: str | None = None
+    mode: Mode = "live"
+    api_base: str = "https://api.proofy.dev"
     token: str | None = None
     project_id: int | None = None
 
@@ -47,6 +47,9 @@ class ProofyConfig:
     # Retry settings
     max_retries: int = 3
     retry_delay: float = 1.0
+
+    # Upload settings
+    max_concurrent_uploads: int = 10
 
 
 __all__ = [

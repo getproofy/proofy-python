@@ -5,16 +5,16 @@ from pathlib import Path
 
 import proofy as api
 import pytest
-from proofy._impl.context.backend import ThreadLocalBackend
-from proofy._impl.context.service import ContextService
+from proofy._internal.context.backend import ThreadLocalBackend
+from proofy._internal.context.service import ContextService
 from proofy.core.models import TestResult
 
 
 @pytest.fixture(autouse=True)
 def _fresh_service(monkeypatch):
     service = ContextService(ThreadLocalBackend())
-    monkeypatch.setattr("proofy._impl.context.service.ContextService", ContextService)
-    monkeypatch.setattr("proofy._impl.context.get_context_service", lambda: service)
+    monkeypatch.setattr("proofy._internal.context.service.ContextService", ContextService)
+    monkeypatch.setattr("proofy._internal.context.get_context_service", lambda: service)
     # Rebind module-level reference in api
     monkeypatch.setattr("proofy.core.api._context_service", service, raising=False)
     yield service

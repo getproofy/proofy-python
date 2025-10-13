@@ -1,149 +1,56 @@
-# Proofy Python
+## Proofy Python
 
-A framework for integrating Proofy test reporting with multiple Python testing frameworks.
+A monorepo for Proofy’s Python ecosystem. It contains the shared core library and adapters for popular testing frameworks.
 
-## Supported Frameworks
+- Core library: published as `proofy-python`
+- Pytest plugin: published as `pytest-proofy`
+- Additional adapters (behave, unittest, nose2): work in progress
 
-- ✅ **pytest** - Full featured pytest plugin
-- 🚧 **behave** - BDD testing with Gherkin syntax
-- 🚧 **unittest** - Standard Python unittest framework
-- 🚧 **nose2** - Unittest with plugin system
+## Installation
 
-## Architecture
+```bash
+# Core library (programmatic API, decorators, runtime helpers)
+pip install proofy-python
 
+# Pytest plugin (installs the core)
+pip install pytest-proofy
 ```
+
+Using uv:
+
+```bash
+uv add proofy-python
+uv add pytest-proofy
+```
+
+## Project structure
+
+```text
 proofy-python/
-├── proofy-commons/             # Shared components
-│   ├── proofy/
-│   │   ├── core/               # Public API facade, client, models, decorators
-│   │   └── _impl/
-│   │       ├── context/        # Context service and models
-│   │       ├── io/             # Results handling and local exports
-│   │       ├── export/         # Attachment packaging (e.g., ZIP)
-│   │       └── hooks/          # Hook specs and manager
-│   └── tests/
-├── pytest-proofy/              # Pytest adapter
-├── behave-proofy/              # Behave adapter
-├── unittest-proofy/            # Unittest adapter
-└── nose2-proofy/               # Nose2 adapter
+├── proofy-commons/           # Shared core library (package: proofy)
+│   └── proofy/               # Public API, clients, internal runtime
+├── pytest-proofy/            # Pytest adapter (package: pytest_proofy)
+├── behave-proofy/            # Behave adapter (WIP)
+├── unittest-proofy/          # unittest adapter (WIP)
+└── nose2-proofy/             # nose2 adapter (WIP)
 ```
 
-## Key Features
+## Configuration
 
-### Dual Processing System
+Below are the global configuration parameters supported by Proofy integrations. How to set these (CLI flags, env vars, config files) is documented in each adapter’s README.
 
-- **Live Mode**: Synchronous operations for real-time updates
-- **Lazy/Batch Mode**: Asynchronous background processing
-- **Smart Mode Selection**: Automatic based on configuration
-
-### Unified API
-
-- Consistent interface across all testing frameworks
-- Server-generated ID support for live updates
-- Rich attachment and metadata support
-- Flexible configuration hierarchy
-
-### Hook System
-
-- Extensible plugin architecture using pluggy
-- Framework-agnostic hook specifications
-- Easy custom plugin development
-
-## Quick Start
-
-### Installation
-
-```bash
-# Install with specific framework support
-pip install proofy-python[pytest]
-pip install proofy-python[behave]
-pip install proofy-python[unittest]
-pip install proofy-python[nose2]
-
-# Install with all frameworks
-pip install proofy-python[all]
-```
-
-### Basic Usage
-
-#### Pytest
-
-```bash
-pytest --proofy-api-base https://api.proofy.dev --proofy-token YOUR_TOKEN --proofy-mode live
-```
-
-#### Behave
-
-```bash
-behave -D proofy.url=https://api.proofy.dev -D proofy.token=YOUR_TOKEN
-```
-
-### Configuration
-
-Configuration follows hierarchy: **CLI > ENV > config_file > defaults**
-
-```ini
-# pytest.ini / behave.ini / nose2.cfg
-[proofy]
-proofy_api_base = https://api.proofy.dev
-proofy_token = your_token_here
-proofy_mode = lazy
-proofy_batch_size = 10
-```
-
-### Runtime API
-
-```python
-from proofy import add_attachment, set_description, add_attributes
-
-def test_example():
-    set_description("This is a comprehensive test")
-    add_attributes(severity="high", component="auth")
-
-    # Your test code here
-
-    add_attachment("screenshot.png", name="failure_screenshot")
-```
-
-### Decorators
-
-```python
-from proofy import name, description, severity
-
-@name("User Login Test")
-@description("Tests user authentication flow")
-@severity("critical")
-def test_user_login():
-    # Test implementation
-    pass
-```
-
-### Run Attributes
-
-Add metadata to your entire test run (not individual tests):
-
-```bash
-# Via CLI
-pytest --proofy-run-attributes environment=production,version=1.2.3
-
-# Via conftest.py (recommended)
-import proofy
-
-def pytest_sessionstart(session):
-    proofy.add_run_attributes(
-        environment="staging",
-        version="1.2.3",
-        build_id="456"
-    )
-```
-
-**Automatic System Attributes** collected for every run:
-
-- Python version, OS, platform, architecture
-- Framework and framework version
-
-See detailed documentation:
-- [Examples](examples/run_attributes_example.py)
+| Parameter          | Type                       | Default            | Description                                               |
+| ------------------ | -------------------------- | ------------------ | --------------------------------------------------------- |
+| mode               | enum[str]: live/batch/lazy | live               | Delivery mode controlling when results are sent           |
+| api_base           | str                        | —                  | Base URL of the Proofy API (e.g., https://api.proofy.dev) |
+| token              | str                        | —                  | Bearer token for API authentication                       |
+| project_id         | int                        | —                  | Proofy project identifier                                 |
+| batch_size         | int                        | 10                 | Number of results per batch (batch mode)                  |
+| output_dir         | str                        | `proofy-artifacts` | Directory for local backup exports                        |
+| always_backup      | bool                       | false              | Always create local backup files with results             |
+| run_name           | str                        | —                  | Display name for the test run                             |
+| run_attributes     | dict[str,str]              | —                  | Custom run metadata applied to the entire run             |
+| enable_attachments | bool                       | true               | Enable attachment capture and upload                      |
 
 ## Development
 
@@ -169,66 +76,37 @@ source .venv/bin/activate
 pip install -e ./proofy-commons -e ./pytest-proofy -e .[dev]
 ```
 
-### Testing
+### Testing (use uv)
 
 ```bash
-# Run all tests
-uv run -q pytest
+# Core library tests
+cd proofy-commons && uv run -q pytest -n auto
 
-# Run specific component tests
-uv run -q pytest proofy-commons/tests
-uv run -q pytest pytest-proofy/tests
+# Pytest plugin tests
+cd ../pytest-proofy && uv run -q pytest -n auto
 
-# Run with coverage
-uv run -q pytest --cov=proofy --cov-report=html
+# From repo root (all suites)
+cd .. && uv run -q pytest -n auto
 ```
 
-### Code Quality
+### Code quality
 
 ```bash
-# Format and lint
 ruff format
 ruff check --fix
-
-# Type checking
 mypy
-
-# All quality checks
 pre-commit run --all-files
 ```
-
-## Modes
-
-### Live Mode
-
-- Creates test results immediately when test starts
-- Real-time updates during test execution
-- Synchronous attachment uploads
-- Best for interactive development and debugging
-
-### Lazy Mode (Default)
-
-- Collects results and sends after test completion
-- Background processing for better performance
-- Automatic retry with exponential backoff
-- Best for CI/CD environments
-
-### Batch Mode
-
-- Groups results and sends in configurable batches
-- Optimized for large test suites
-- Balances performance and real-time visibility
-- Best for performance-critical environments
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes with tests
-4. Ensure code quality: `ruff format && ruff check && mypy`
-5. Run tests: `pytest`
-6. Submit a pull request
+3. Add tests covering your change
+4. Ensure quality: `ruff format && ruff check && mypy`
+5. Run tests with uv: `uv run -q pytest -n auto`
+6. Open a pull request
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Apache-2.0 — see [LICENSE](LICENSE).

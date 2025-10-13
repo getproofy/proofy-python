@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import IO, Any
 
-from .._impl.context import get_context_service
-from .._impl.context.models import SessionContext
+from .._internal.context import SessionContext, get_context_service
 from .client import ArtifactType
 
 _context_service = get_context_service()
@@ -45,6 +45,40 @@ def add_attachment(
     )
 
 
+def add_data(
+    data: str | bytes | bytearray | dict[str, Any],
+    *,
+    name: str,
+    mime_type: str | None = None,
+    extension: str | None = None,
+    artifact_type: ArtifactType | int = ArtifactType.ATTACHMENT,
+    encoding: str = "utf-8",
+) -> None:
+    inferred_mime_type = mime_type
+    inferred_extension = extension
+
+    if isinstance(data, bytes | bytearray):
+        payload = bytes(data)
+    elif isinstance(data, str):
+        payload = data.encode(encoding)
+    elif isinstance(data, dict):
+        payload = json.dumps(data).encode(encoding)
+        if inferred_mime_type is None:
+            inferred_mime_type = "application/json"
+        if inferred_extension is None:
+            inferred_extension = "json"
+    else:
+        raise TypeError("Unsupported data type. Expected str, bytes, bytearray, or dict.")
+
+    add_attachment(
+        payload,
+        name=name,
+        mime_type=inferred_mime_type,
+        extension=inferred_extension,
+        artifact_type=artifact_type,
+    )
+
+
 def set_description(description: str) -> None:
     _context_service.set_description(description)
 
@@ -59,6 +93,8 @@ def get_current_test_id() -> str | None:
 
 
 # --- Run management ---
+
+
 def _get_session() -> SessionContext | None:
     return _context_service.session_ctx
 
@@ -88,6 +124,7 @@ def get_run_attributes() -> dict[str, Any]:
 
 
 __all__ = [
+    "add_data",
     "add_attachment",
     "add_attributes",
     "add_run_attributes",

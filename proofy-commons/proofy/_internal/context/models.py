@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from proofy._impl.config import ProofyConfig
-from proofy.core.models import TestResult
+from ..._internal.config import ProofyConfig
+from ...core.models import TestResult
 
 
 @dataclass

@@ -1,13 +1,12 @@
-"""Private implementation for Proofy context management.
+"""Internal context API.
 
-This package contains internal, unstable APIs for managing test and session
-context. External users should not import from here directly. Public wrappers
-may be provided under stable modules.
+This exposes ContextService and helpers under `_internal`.
 """
 
 from __future__ import annotations
 
 from .backend import ThreadLocalBackend
+from .models import SessionContext
 from .service import ContextService
 
 _global_backend = ThreadLocalBackend()
@@ -22,4 +21,9 @@ def get_context_service() -> ContextService:
     return _global_service
 
 
-__all__ = ["get_context_service", "ContextService", "ThreadLocalBackend"]
+__all__ = [
+    "ContextService",
+    "ThreadLocalBackend",
+    "get_context_service",
+    "SessionContext",
+]

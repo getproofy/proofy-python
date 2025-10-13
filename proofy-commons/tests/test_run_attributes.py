@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from proofy._impl.context.backend import ThreadLocalBackend
-from proofy._impl.context.service import ContextService
+from proofy._internal.context.backend import ThreadLocalBackend
+from proofy._internal.context.service import ContextService
 from proofy.core.system_info import collect_system_attributes, get_framework_version
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 from collections.abc import Generator
 from datetime import datetime, timezone
@@ -10,14 +12,13 @@ from typing import Any
 
 import pytest
 from _pytest.reports import TestReport
-from proofy._impl.config import ProofyConfig
-from proofy._impl.hooks import get_plugin_manager, hookimpl
-from proofy._impl.hooks.manager import reset_plugin_manager
-from proofy._impl.io.results_handler import ResultsHandler
+from proofy._internal.config import ProofyConfig
+from proofy._internal.hooks import get_plugin_manager, hookimpl
+from proofy._internal.hooks.manager import reset_plugin_manager
+from proofy._internal.results import ResultsHandler
 
 # Import from proofy-commons
-from proofy.core import ProofyClient
-from proofy.core.models import ResultStatus, TestResult
+from proofy.core.models import ReportingStatus, ResultStatus, RunStatus, TestResult
 from pytest import CallInfo
 
 from .config import (
@@ -26,35 +27,29 @@ from .config import (
     setup_pytest_ini_options,
 )
 
+logger = logging.getLogger("ProofyPytestPlugin")
+
 
 class ProofyPytestPlugin:
     """Main Proofy pytest plugin class."""
 
-    def __init__(self, config: ProofyConfig):
+    def __init__(self, config: ProofyConfig, collect_only: bool):
         self.config = config
-        self.client: ProofyClient | None = None
         self.run_id: int | None = None
-        # Results handler will be initialized after client is created
-        self.results_handler: ResultsHandler | None = None
 
         # Plugin state
         self._start_time: datetime | None = None
         self._num_deselected = 0
         self._terminal_summary = ""
+        self._session_error_message: str | None = None
+        self._had_collection_errors: bool = False
+        self._collect_only: bool = collect_only
 
-        # Initialize client if API configured, if not we can still use the results handler without a client
-        if config.api_base and config.token:
-            self.client = ProofyClient(
-                base_url=config.api_base, token=config.token, timeout_s=config.timeout_s
-            )
-
-        # Initialize results handler (works without client as well)
+        # Initialize results handler
         self.results_handler = ResultsHandler(
-            client=self.client,
-            mode=config.mode,
-            output_dir=config.output_dir,
-            project_id=config.project_id,
+            config=config,
             framework="pytest",
+            enable=not collect_only,
         )
 
     def _get_test_id(self, item: pytest.Item) -> str:
@@ -102,32 +97,94 @@ class ProofyPytestPlugin:
             )
         return attributes
 
-    def _get_markers(self, item: pytest.Item) -> list[dict[str, Any]]:
-        """Collect marker name and values, excluding internal proofy markers.
+    def _get_markers(self, item: pytest.Item) -> list[str]:
+        """Collect markers (excluding internal ones) as a list of strings with length limit.
 
-        Returns a list of dicts with keys: name, args, kwargs.
-        Filters out markers whose names start with "__proofy_" and the
-        special configuration marker "proofy_attributes" (already processed).
+        Format: ["name(arg1, arg2, key=value)"]
+        Applies a JSON-length limit (default 100) and appends "..." if truncated.
         """
+        limit = 100
         try:
             all_marks = list(item.iter_markers())
         except Exception:
             all_marks = []
-        collected: list[dict[str, Any]] = []
+
+        formatted: list[str] = []
+        truncated = False
+
         for m in all_marks:
             name = getattr(m, "name", None)
             if not isinstance(name, str):
                 continue
-            if name == "parametrize":  # ignore parametrize marker
+            if name in ("parametrize", "proofy_attributes", "skip"):
                 continue
             if name.startswith("__proofy_"):
                 continue
-            if name == "proofy_attributes":
-                continue
-            args = list(getattr(m, "args", []) or [])
-            kwargs = dict(getattr(m, "kwargs", {}) or {})
-            collected.append({"name": name, "args": args, "kwargs": kwargs})
-        return collected
+
+            args = [repr(a) for a in (getattr(m, "args", []) or [])]
+            kwargs_items = (getattr(m, "kwargs", {}) or {}).items()
+            kwargs = [f"{k}={repr(v)}" for k, v in kwargs_items]
+
+            if not args and not kwargs:
+                marker_str = name
+            else:
+                params = ", ".join(args + kwargs)
+                marker_str = f"{name}({params})"
+
+            test_list = formatted + [marker_str]
+            test_json = json.dumps(test_list, ensure_ascii=False)
+            if len(test_json) <= limit:
+                formatted.append(marker_str)
+            else:
+                truncated = True
+                break
+
+        if truncated:
+            test_list = formatted + ["..."]
+            test_json = json.dumps(test_list, ensure_ascii=False)
+            if len(test_json) <= limit:
+                formatted.append("...")
+
+        return formatted
+
+    def _get_parameters(self, item: pytest.Item) -> dict[str, Any]:
+        """Collect parameters with a JSON-length limit and truncation marker.
+
+        Keeps the mapping shape but ensures the serialized JSON stays under the
+        limit by stopping early and optionally appending an indicator key.
+        """
+        limit = 100
+        raw_params = getattr(getattr(item, "callspec", None), "params", {}) or {}
+        parameters: dict[str, Any] = {}
+        truncated_params = False
+        try:
+            for param_key, param_value in raw_params.items():
+                candidate_value = param_value
+                try:
+                    json.dumps(candidate_value, ensure_ascii=False)
+                except Exception:
+                    candidate_value = repr(param_value)
+
+                candidate_parameters = dict(parameters)
+                candidate_parameters[param_key] = candidate_value
+                if len(json.dumps(candidate_parameters, ensure_ascii=False)) <= limit:
+                    parameters = candidate_parameters
+                else:
+                    truncated_params = True
+                    break
+
+            if truncated_params:
+                candidate_parameters = dict(parameters)
+                ellipsis_key = "..."
+                if ellipsis_key in candidate_parameters:
+                    ellipsis_key = "__truncated__"
+                candidate_parameters[ellipsis_key] = True
+                if len(json.dumps(candidate_parameters, ensure_ascii=False)) <= limit:
+                    parameters = candidate_parameters
+        except Exception:
+            parameters = {}
+
+        return parameters
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_sessionstart(self, session: pytest.Session) -> None:
@@ -140,8 +197,8 @@ class ProofyPytestPlugin:
         self.run_id = self.results_handler.start_run()
         self.config.run_id = self.run_id  # type: ignore[attr-defined]
 
-        if not self.run_id and self.client:
-            raise RuntimeError("Run ID not found. Make sure to call start_run() first.")
+        if not self.run_id and self.results_handler.client:
+            logger.error("Run ID not found after start_run; proceeding without server sync.")
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_protocol(self, item: pytest.Item):
@@ -151,8 +208,6 @@ class ProofyPytestPlugin:
         attributes = self._get_attributes(item)
         tags = attributes.pop("__proofy_tags", [])
         display_name = attributes.pop("__proofy_name", None)
-
-        parameters = item.callspec.params if hasattr(item, "callspec") else {}
 
         result = TestResult(
             id=self._get_test_id(item),
@@ -164,7 +219,7 @@ class ProofyPytestPlugin:
             run_id=self.run_id,
             attributes=attributes,
             tags=tags,
-            parameters=parameters,
+            parameters=self._get_parameters(item),
             markers=self._get_markers(item),
         )
         self.results_handler.on_test_started(result)
@@ -183,7 +238,8 @@ class ProofyPytestPlugin:
 
         # Create result if not exists yet
         if not result:
-            raise RuntimeError(f"Result not found for test {self._get_test_id(item)}")
+            logger.error("Result not found for test %s", self._get_test_id(item))
+            return
 
         if report.failed and getattr(call, "excinfo", None) is not None:
             result.message = call.excinfo.exconly()
@@ -194,6 +250,35 @@ class ProofyPytestPlugin:
                 call.excinfo.value, AssertionError
             ):
                 status = ResultStatus.BROKEN
+
+        # Capture skip reason/message when a test is skipped
+        if status == ResultStatus.SKIPPED and not result.message:
+            skip_message: str | None = None
+            try:
+                longrepr = getattr(report, "longrepr", None)
+                if isinstance(longrepr, tuple | list) and len(longrepr) >= 3:
+                    skip_message = str(longrepr[2])
+                elif isinstance(longrepr, str) and longrepr:
+                    skip_message = longrepr
+                if not skip_message:
+                    longreprtext = getattr(report, "longreprtext", None)
+                    if isinstance(longreprtext, str) and longreprtext:
+                        text = longreprtext.strip()
+                        if text.lower().startswith("skipped"):
+                            parts = text.split(":", 1)
+                            skip_message = parts[1].strip() if len(parts) == 2 else text
+                        else:
+                            skip_message = text
+                if not skip_message and getattr(call, "excinfo", None) is not None:
+                    try:
+                        skip_message = str(call.excinfo.value)
+                    except Exception:
+                        skip_message = None
+            except Exception:
+                skip_message = None
+
+            if skip_message:
+                result.message = skip_message
 
         if report.when == "setup":
             result.status = status
@@ -222,12 +307,33 @@ class ProofyPytestPlugin:
     @pytest.hookimpl(trylast=True)
     def pytest_sessionfinish(self, session: pytest.Session, exitstatus: int) -> None:
         """Called at the end of test session."""
+        # Decide final run status
+        final_status = RunStatus.FINISHED
+        if exitstatus in {2, 3, 4} or self._had_collection_errors:
+            final_status = RunStatus.ABORTED
 
-        self.results_handler.finish_run(run_id=self.run_id)
+        # Finalize run with possible error message attribute
+        self.results_handler.finish_run(
+            run_id=self.run_id,
+            status=final_status,
+            error_message=self._session_error_message,
+        )
 
         # Backup results locally if configured
         if self.config.always_backup:
             self.results_handler.backup_results()
+
+        try:
+            results = self.results_handler.context.get_results()
+            uploaded_ok = sum(
+                1
+                for r in results.values()
+                if getattr(r, "reporting_status", None) == ReportingStatus.FINISHED
+            )
+        except Exception:
+            uploaded_ok = 0
+
+        self._terminal_summary += f"Uploaded {uploaded_ok} result(s) to Proofy\n"
 
         self.results_handler.end_session()
 
@@ -243,6 +349,31 @@ class ProofyPytestPlugin:
     def pytest_terminal_summary(self, terminalreporter):
         terminalreporter.write_sep("-", "Proofy report")
         terminalreporter.write_line(str(self._terminal_summary))
+
+    def pytest_collectreport(self, report):
+        """Capture collection errors to mark run as aborted and store message."""
+        try:
+            failed = getattr(report, "failed", False)
+            if failed:
+                self._had_collection_errors = True
+                longreprtext = getattr(report, "longreprtext", None)
+                longrepr = getattr(report, "longrepr", None)
+                nodeid = getattr(report, "nodeid", None)
+                msg = None
+                if isinstance(longreprtext, str) and longreprtext:
+                    msg = longreprtext
+                elif longrepr is not None:
+                    try:
+                        msg = str(longrepr)
+                    except Exception:
+                        msg = None
+                # Fallback concise message
+                if not msg:
+                    msg = f"Collection error at {nodeid or '<unknown>'}"
+                # Persist a trimmed error to avoid huge payloads
+                self._session_error_message = msg[:100]
+        except Exception:
+            pass
 
 
 # Hook implementations for integration with proofy hook system
@@ -280,9 +411,10 @@ def pytest_configure(config: pytest.Config) -> None:
     config._proofy_hooks = _proofy_hooks_instance
     pm.register(_proofy_hooks_instance, "pytest_proofy_hooks")
 
+    collect_only = config.getoption("collectonly", False)
     proofy_config = resolve_options(config)
 
-    _plugin_instance = ProofyPytestPlugin(proofy_config)
+    _plugin_instance = ProofyPytestPlugin(proofy_config, collect_only)
     config._proofy = _plugin_instance
     config.pluginmanager.register(_plugin_instance, "proofy_plugin")
     pm.register(_plugin_instance, "pytest_proofy")

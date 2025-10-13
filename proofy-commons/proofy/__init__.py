@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 # Public API facade
-from proofy.core.api import (
+from .core.api import (
     add_attachment,
     add_attributes,
+    add_data,
     add_run_attributes,
     add_tag,
     add_tags,
@@ -18,10 +19,10 @@ from proofy.core.api import (
     set_run_name,
     set_severity,
 )
-from proofy.core.client import ArtifactType
+from .core.client import ArtifactType
 
 # Decorators
-from proofy.core.decorators import (
+from .core.decorators import (
     attributes,
     description,
     name,
@@ -43,6 +44,7 @@ __all__ = [
     "__email__",
     # Public API
     "add_attachment",
+    "add_data",
     "add_attributes",
     "add_run_attributes",
     "add_tag",

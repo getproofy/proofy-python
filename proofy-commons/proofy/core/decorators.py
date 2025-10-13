@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from proofy._impl.hooks.manager import get_plugin_manager
+from proofy._internal.hooks.manager import get_plugin_manager
 
 _plugin_manager = get_plugin_manager()
 
@@ -41,3 +41,13 @@ def severity(level: str) -> Any:
 def tags(*tags: str) -> Any:
     # Store under special key for pytest plugin to split into Result.tags
     return attributes(**{"__proofy_tags": list(tags)})  # type: ignore[arg-type]
+
+
+__all__ = [
+    "attributes",
+    "description",
+    "name",
+    "severity",
+    "tags",
+    "title",
+]
