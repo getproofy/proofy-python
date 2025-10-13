@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 
@@ -78,7 +79,7 @@ def _install_gate_once() -> None:
 
 
 @contextmanager
-def httpx_debug_only_here():
+def httpx_debug_only_here() -> Generator[None, None, None]:
     """Temporarily allow httpx/httpcore DEBUG logs within this scope.
 
     Effect is active only when the environment variable PROOFYDEBUG is truthy.

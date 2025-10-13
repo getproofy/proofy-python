@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import IO, Any
 
@@ -41,6 +42,40 @@ def add_attachment(
         mime_type=mime_type,
         extension=extension,
         artifact_type=int(artifact_type),
+    )
+
+
+def add_data(
+    data: str | bytes | bytearray | dict[str, Any],
+    *,
+    name: str,
+    mime_type: str | None = None,
+    extension: str | None = None,
+    artifact_type: ArtifactType | int = ArtifactType.ATTACHMENT,
+    encoding: str = "utf-8",
+) -> None:
+    inferred_mime_type = mime_type
+    inferred_extension = extension
+
+    if isinstance(data, bytes | bytearray):
+        payload = bytes(data)
+    elif isinstance(data, str):
+        payload = data.encode(encoding)
+    elif isinstance(data, dict):
+        payload = json.dumps(data).encode(encoding)
+        if inferred_mime_type is None:
+            inferred_mime_type = "application/json"
+        if inferred_extension is None:
+            inferred_extension = "json"
+    else:
+        raise TypeError("Unsupported data type. Expected str, bytes, bytearray, or dict.")
+
+    add_attachment(
+        payload,
+        name=name,
+        mime_type=inferred_mime_type,
+        extension=inferred_extension,
+        artifact_type=artifact_type,
     )
 
 
@@ -89,6 +124,7 @@ def get_run_attributes() -> dict[str, Any]:
 
 
 __all__ = [
+    "add_data",
     "add_attachment",
     "add_attributes",
     "add_run_attributes",
