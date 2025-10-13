@@ -155,32 +155,56 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
 
     # Resolve all configuration options
     proofy_config = ProofyConfig(
-        mode=get_option("proofy_mode", "PROOFY_MODE", "proofy_mode"),
+        mode=get_option("proofy_mode", "PROOFY_MODE", "proofy_mode", default=ProofyConfig.mode),
         api_base=get_option(
             "proofy_api_base",
             "PROOFY_API_BASE",
             "proofy_api_base",
+            default=ProofyConfig.api_base,
         ),
-        token=get_option("proofy_token", "PROOFY_TOKEN", "proofy_token"),
+        token=get_option(
+            "proofy_token", "PROOFY_TOKEN", "proofy_token", default=ProofyConfig.token
+        ),
         project_id=get_option(
-            "proofy_project_id", "PROOFY_PROJECT_ID", "proofy_project_id", type_func=int
+            "proofy_project_id",
+            "PROOFY_PROJECT_ID",
+            "proofy_project_id",
+            default=ProofyConfig.project_id,
+            type_func=int,
         ),
         batch_size=get_option(
-            "proofy_batch_size", "PROOFY_BATCH_SIZE", "proofy_batch_size", type_func=int
+            "proofy_batch_size",
+            "PROOFY_BATCH_SIZE",
+            "proofy_batch_size",
+            default=ProofyConfig.batch_size,
+            type_func=int,
         ),
         output_dir=get_option(
             "proofy_output_dir",
             "PROOFY_OUTPUT_DIR",
             "proofy_output_dir",
+            default=ProofyConfig.output_dir,
         ),
         always_backup=get_option(
             "proofy_always_backup",
             "PROOFY_ALWAYS_BACKUP",
             "proofy_always_backup",
+            default=ProofyConfig.always_backup,
             type_func=bool,
         ),
-        run_id=get_option("proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int),
-        run_name=get_option("proofy_run_name", "PROOFY_RUN_NAME", "proofy_run_name"),
+        run_id=get_option(
+            "proofy_run_id",
+            "PROOFY_RUN_ID",
+            "proofy_run_id",
+            default=ProofyConfig.run_id,
+            type_func=int,
+        ),
+        run_name=get_option(
+            "proofy_run_name",
+            "PROOFY_RUN_NAME",
+            "proofy_run_name",
+            default=ProofyConfig.run_name,
+        ),
     )
 
     attrs_str = get_option(
