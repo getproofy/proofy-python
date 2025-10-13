@@ -6,6 +6,7 @@ from __future__ import annotations
 from .core.api import (
     add_attachment,
     add_attributes,
+    add_data,
     add_run_attributes,
     add_tag,
     add_tags,
@@ -43,6 +44,7 @@ __all__ = [
     "__email__",
     # Public API
     "add_attachment",
+    "add_data",
     "add_attributes",
     "add_run_attributes",
     "add_tag",
