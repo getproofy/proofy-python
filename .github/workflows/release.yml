@@ -100,8 +100,8 @@ jobs:
           # Update pytest-proofy version
           sed -i "s/version = \".*\"/version = \"$VERSION\"/" pytest-proofy/pyproject.toml
 
-          # Update pytest-proofy dependency on proofy
-          sed -i -E "s/\"proofy>=[^\"]+\"/\"proofy>=$VERSION\"/" pytest-proofy/pyproject.toml
+          # Update pytest-proofy dependency on proofy-python
+          sed -i -E "s/\"proofy-python>=[^\"]+\"/\"proofy-python>=$VERSION\"/" pytest-proofy/pyproject.toml
 
       - name: Build proofy-commons
         run: |
@@ -166,7 +166,7 @@ jobs:
 
           echo "" >> changelog.md
           echo "### Packages in this release:" >> changelog.md
-          echo "- proofy-commons v$VERSION" >> changelog.md
+          echo "- proofy-python v$VERSION" >> changelog.md
           echo "- pytest-proofy v$VERSION" >> changelog.md
 
       - name: Create Release
@@ -187,7 +187,7 @@ jobs:
     if: needs.validate-tag.outputs.is-prerelease == 'false' # Only publish stable releases
     environment:
       name: pypi
-      url: https://pypi.org/project/proofy/
+      url: https://pypi.org/project/proofy-python/
     permissions:
       id-token: write # For trusted publishing
     steps:
@@ -214,7 +214,7 @@ jobs:
     if: always() # Publish all versions to Test PyPI
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/proofy/
+      url: https://test.pypi.org/project/proofy-python/
     permissions:
       id-token: write # For trusted publishing
     steps:
@@ -230,12 +230,12 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/proofy-commons/dist/
 
-      - name: Wait for proofy-commons to be available
+      - name: Wait for proofy-python to be available
         run: |
-          echo "Waiting for proofy-commons to be available on Test PyPI..."
+          echo "Waiting for proofy-python to be available on Test PyPI..."
           sleep 30
           # Verify the package is available
-          curl -f "https://test.pypi.org/pypi/proofy/json" || exit 1
+          curl -f "https://test.pypi.org/pypi/proofy-python/json" || exit 1
 
       - name: Publish pytest-proofy to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -263,7 +263,7 @@ jobs:
           if [[ "${{ needs.validate-tag.outputs.is-prerelease }}" == "false" ]]; then
             if [[ "${{ needs.publish-to-pypi.result }}" == "success" ]]; then
               echo "✅ **PyPI**: Published successfully" >> $GITHUB_STEP_SUMMARY
-              echo "- [proofy v$VERSION](https://pypi.org/project/proofy/$VERSION/)" >> $GITHUB_STEP_SUMMARY
+              echo "- [proofy-python v$VERSION](https://pypi.org/project/proofy-python/$VERSION/)" >> $GITHUB_STEP_SUMMARY
               echo "- [pytest-proofy v$VERSION](https://pypi.org/project/pytest-proofy/$VERSION/)" >> $GITHUB_STEP_SUMMARY
             else
               echo "❌ **PyPI**: Publication failed" >> $GITHUB_STEP_SUMMARY
@@ -275,6 +275,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Installation" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "pip install proofy==$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "pip install proofy-python==$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "pip install pytest-proofy==$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
