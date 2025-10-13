@@ -155,32 +155,29 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
 
     # Resolve all configuration options
     proofy_config = ProofyConfig(
-        mode=get_option("proofy_mode", "PROOFY_MODE", "proofy_mode", "lazy"),
+        mode=get_option("proofy_mode", "PROOFY_MODE", "proofy_mode"),
         api_base=get_option(
             "proofy_api_base",
             "PROOFY_API_BASE",
             "proofy_api_base",
-            "https://api.proofy.dev",
         ),
         token=get_option("proofy_token", "PROOFY_TOKEN", "proofy_token"),
         project_id=get_option(
             "proofy_project_id", "PROOFY_PROJECT_ID", "proofy_project_id", type_func=int
         ),
         batch_size=get_option(
-            "proofy_batch_size", "PROOFY_BATCH_SIZE", "proofy_batch_size", 10, int
+            "proofy_batch_size", "PROOFY_BATCH_SIZE", "proofy_batch_size", type_func=int
         ),
         output_dir=get_option(
             "proofy_output_dir",
             "PROOFY_OUTPUT_DIR",
             "proofy_output_dir",
-            "proofy-artifacts",
         ),
         always_backup=get_option(
             "proofy_always_backup",
             "PROOFY_ALWAYS_BACKUP",
             "proofy_always_backup",
-            False,
-            bool,
+            type_func=bool,
         ),
         run_id=get_option("proofy_run_id", "PROOFY_RUN_ID", "proofy_run_id", type_func=int),
         run_name=get_option("proofy_run_name", "PROOFY_RUN_NAME", "proofy_run_name"),
@@ -197,17 +194,13 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
 
 def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     """Setup pytest.ini configuration options."""
-    parser.addini("proofy_mode", "Proofy delivery mode", default="live")
-    parser.addini(
-        "proofy_api_base",
-        "Proofy API base URL",
-        default="https://api.proofy.dev",
-    )
+    parser.addini("proofy_mode", "Proofy delivery mode")
+    parser.addini("proofy_api_base", "Proofy API base URL")
     parser.addini("proofy_token", "Proofy API token")
     parser.addini("proofy_project_id", "Proofy project ID")
-    parser.addini("proofy_batch_size", "Batch size for results", default="10")
-    parser.addini("proofy_output_dir", "Output directory for backups", default="proofy-artifacts")
-    parser.addini("proofy_always_backup", "Always create backup files", default="false")
+    parser.addini("proofy_batch_size", "Batch size for results")
+    parser.addini("proofy_output_dir", "Output directory for backups")
+    parser.addini("proofy_always_backup", "Always create backup files")
     parser.addini("proofy_run_id", "Existing run ID")
     parser.addini("proofy_run_name", "Test run name")
     parser.addini("proofy_run_attributes", "Custom run attributes (key=value,key2=value2)")
