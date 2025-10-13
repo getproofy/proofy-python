@@ -8,12 +8,11 @@ authors = [
     { name = "Proofy Team", email = "team@proofy.dev" },
     { name = "Krzysztof Marmol", email = "krzysztof.marmol@gmail.com" },
 ]
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 keywords = ["testing", "proofy", "pytest", "behave", "unittest", "nose2"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
