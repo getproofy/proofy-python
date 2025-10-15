@@ -21,15 +21,21 @@ pip install pytest-proofy
 ### Basic Usage
 
 ```bash
-pytest --proofy-token YOUR_TOKEN \
+pytest --proofy \
+       --proofy-token YOUR_TOKEN \
        --proofy-project-id 123
 ```
+
+**Note:** The `--proofy` flag is required to activate the Proofy plugin. Without it, the plugin will not register or report test results.
 
 ### Configuration
 
 #### Command Line Options
 
 ```bash
+# Activation
+--proofy                            # Enable Proofy plugin (required)
+
 # Core options
 --proofy-mode {live,batch,lazy}     # Reporting mode
 --proofy-api-base URL               # Proofy API base URL
@@ -39,14 +45,14 @@ pytest --proofy-token YOUR_TOKEN \
 # Run options
 --proofy-run-id ID                  # Existing run ID to append to
 --proofy-run-name NAME              # Custom run name
---proofy-run-attributes ATTRS       # Custom run attributes (key=value,key2=value2)
+--proofy-run-attributes ATTRS       # Custom run attributes. Repeatable flag; accepts "k=v"
 
 # Batch options
 --proofy-batch-size N               # Results per batch (default: 10)
 
 # Output options
 --proofy-output-dir DIR             # Local backup directory
---proofy-always-backup              # Always create local backup
+--proofy-backup                     # Create local backup files
 ```
 
 #### Environment Variables
@@ -62,14 +68,20 @@ export PROOFY_PROJECT_ID=123
 
 ```ini
 [pytest]
+proofy = true                       # Enable Proofy plugin
 proofy_mode = lazy
 proofy_api_base = https://api.proofy.dev
 proofy_token = your-token-here
 proofy_project_id = 123
 proofy_batch_size = 20
 proofy_output_dir = test-artifacts
-proofy_run_attributes = environment=staging,version=1.2.3
+proofy_run_attributes =
+    env=staging
+    version=1.2.3
+    team=backend
 ```
+
+**Note:** When `proofy = true` is set in pytest.ini, you don't need to use the `--proofy` flag. CLI flag has priority over ini configuration.
 
 ## Reporting Modes
 
@@ -78,7 +90,7 @@ proofy_run_attributes = environment=staging,version=1.2.3
 Real-time test reporting with immediate server updates:
 
 ```bash
-pytest --proofy-mode live
+pytest --proofy --proofy-mode live
 ```
 
 - Creates test result when test starts (IN_PROGRESS status)
@@ -91,7 +103,7 @@ pytest --proofy-mode live
 Sends complete results after test execution:
 
 ```bash
-pytest --proofy-mode lazy
+pytest --proofy --proofy-mode lazy
 ```
 
 - Collects results during execution
@@ -103,7 +115,7 @@ pytest --proofy-mode lazy
 Groups results and sends in configurable batches:
 
 ```bash
-pytest --proofy-mode batch --proofy-batch-size 50
+pytest --proofy --proofy-mode batch --proofy-batch-size 50
 ```
 
 - Collects results during execution
@@ -129,21 +141,26 @@ The following attributes are automatically collected for every run:
 #### Via Command Line
 
 ```bash
-pytest --proofy-run-attributes environment=production,version=1.2.3,branch=main
+pytest --proofy \
+  --proofy-run-attributes env=prod \
+  --proofy-run-attributes version=1.2 \
+  --proofy-run-attributes team=qa
 ```
 
 #### Via Environment Variable
 
 ```bash
 export PROOFY_RUN_ATTRIBUTES="environment=staging,version=2.0.0"
-pytest
+pytest --proofy
 ```
 
 #### Via pytest.ini
 
 ```ini
 [pytest]
-proofy_run_attributes = environment=development,team=backend
+proofy_run_attributes =
+    environment=development
+    team=backend
 ```
 
 #### Via conftest.py
@@ -262,19 +279,19 @@ def test_with_attachments():
 
    ```bash
    # Use batch mode with larger batches
-   pytest --proofy-mode batch --proofy-batch-size 100
+   pytest --proofy --proofy-mode batch --proofy-batch-size 100
    ```
 
 ### Debug Mode
 
 ```bash
-pytest --proofy-mode lazy -v -s
+pytest --proofy --proofy-mode lazy -v -s
 ```
 
 ### Local Backup
 
 ```bash
-pytest --proofy-always-backup --proofy-output-dir ./test-results
+pytest --proofy --proofy-backup --proofy-output-dir ./test-results
 ```
 
 Status mappings:

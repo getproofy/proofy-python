@@ -66,7 +66,7 @@ class ResultsHandler:
             if not config.project_id:
                 missing_config.append("project_id")
             if missing_config:
-                logger.warning(
+                raise RuntimeError(
                     f"Missing Proofy required configuration: {', '.join(missing_config)}"
                 )
             if config.api_base and config.token and config.project_id is not None:

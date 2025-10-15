@@ -416,6 +416,9 @@ def pytest_configure(config: pytest.Config) -> None:
     collect_only = config.getoption("collectonly", False)
     proofy_config = resolve_options(config)
 
+    if not proofy_config.enabled:
+        return
+
     _plugin_instance = ProofyPytestPlugin(proofy_config, collect_only)
     config._proofy = _plugin_instance  # type: ignore[attr-defined]
     config.pluginmanager.register(_plugin_instance, "proofy_plugin")
