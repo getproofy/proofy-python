@@ -17,6 +17,7 @@ class ProofyConfig:
     """
 
     # Core settings
+    enabled: bool = False
     mode: Mode = "live"
     api_base: str = "https://api.proofy.dev"
     token: str | None = None

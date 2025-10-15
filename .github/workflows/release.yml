@@ -145,36 +145,29 @@ jobs:
           name: dist-packages
           path: dist/
 
-      - name: Generate changelog
-        id: changelog
+      - name: Generate package info
+        id: package-info
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
 
-          # Get previous tag for changelog
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-
-          echo "## Changes in v$VERSION" > changelog.md
-          echo "" >> changelog.md
-
-          if [ -n "$PREV_TAG" ]; then
-            echo "### Commits since $PREV_TAG:" >> changelog.md
-            git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD >> changelog.md
-          else
-            echo "### All commits in this release:" >> changelog.md
-            git log --pretty=format:"- %s (%h)" >> changelog.md
-          fi
-
-          echo "" >> changelog.md
-          echo "### Packages in this release:" >> changelog.md
-          echo "- proofy-python v$VERSION" >> changelog.md
-          echo "- pytest-proofy v$VERSION" >> changelog.md
+          echo "## 📦 Packages in this release" > package-info.md
+          echo "" >> package-info.md
+          echo "- **proofy-python** v$VERSION" >> package-info.md
+          echo "- **pytest-proofy** v$VERSION" >> package-info.md
+          echo "" >> package-info.md
+          echo "### Installation" >> package-info.md
+          echo "\`\`\`bash" >> package-info.md
+          echo "pip install proofy-python==$VERSION" >> package-info.md
+          echo "pip install pytest-proofy==$VERSION" >> package-info.md
+          echo "\`\`\`" >> package-info.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.validate-tag.outputs.version }}
           name: Release v${{ needs.validate-tag.outputs.version }}
-          body_path: changelog.md
+          body_path: package-info.md
+          generate_release_notes: true
           prerelease: ${{ needs.validate-tag.outputs.is-prerelease == 'true' }}
           files: |
             dist/proofy-commons/dist/*

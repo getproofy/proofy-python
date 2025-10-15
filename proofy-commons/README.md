@@ -11,7 +11,7 @@ Only the functions re-exported from `proofy` are part of the public API. Everyth
 ## Installation
 
 ```bash
-pip install proofy
+pip install proofy-python
 ```
 
 ## Public API (from `proofy`)

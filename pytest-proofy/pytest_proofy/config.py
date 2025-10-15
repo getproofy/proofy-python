@@ -13,6 +13,13 @@ def register_options(parser: pytest.Parser) -> None:
     """Register pytest command line options for Proofy."""
     group = parser.getgroup("proofy", "Proofy test reporting")
 
+    # Activation flag
+    group.addoption(
+        "--proofy",
+        action="store_true",
+        help="Enable Proofy test reporting plugin",
+    )
+
     # Core options
     group.addoption(
         "--proofy-mode",
@@ -58,9 +65,9 @@ def register_options(parser: pytest.Parser) -> None:
         help="Directory for local backup exports",
     )
     group.addoption(
-        "--proofy-always-backup",
+        "--proofy-backup",
         action="store_true",
-        help="Always create local backup files",
+        help="Create local backup files",
     )
 
     # Run options
@@ -79,9 +86,10 @@ def register_options(parser: pytest.Parser) -> None:
     )
     group.addoption(
         "--proofy-run-attributes",
-        action="store",
+        action="append",
         default=None,
-        help="Custom run attributes as key=value pairs separated by comma (e.g., environment=prod,version=1.0)",
+        metavar="KEY=VAL",
+        help="Run attribute (repeatable). Example: --proofy-run-attributes env=prod --proofy-run-attributes version=1.2",
     )
 
 
@@ -97,17 +105,39 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
             return value
         return value.lower() in ("true", "1", "yes", "on")
 
-    def parse_attributes(value: str | None) -> dict[str, str] | None:
-        """Parse attributes from key=value,key2=value2 format."""
+    def parse_attributes_str(value: str | None) -> dict[str, str] | None:
+        """Parse a single string of attributes into a dict.
+
+        Supports comma-separated pairs like "k=v,k2=v2". Whitespace is trimmed.
+        Raises ValueError on invalid pairs without '='.
+        """
         if not value:
             return None
-        attrs = {}
+        attrs: dict[str, str] = {}
         for pair in value.split(","):
             pair = pair.strip()
-            if "=" in pair:
-                key, val = pair.split("=", 1)
-                attrs[key.strip()] = val.strip()
-        return attrs if attrs else None
+            if not pair:
+                continue
+            if "=" not in pair:
+                raise ValueError(f"Invalid attribute '{pair}', expected KEY=VAL")
+            key, val = pair.split("=", 1)
+            attrs[key.strip()] = val.strip()
+        return attrs or None
+
+    def parse_attributes_cli(values: list[str] | None) -> dict[str, str] | None:
+        """Parse a list of CLI/ini values into a merged dict.
+
+        Items are expected to be in the format "k=v". Later entries override earlier ones.
+        """
+        if not values:
+            return None
+        merged: dict[str, str] = {}
+        for item in values:
+            if "=" not in item:
+                raise ValueError(f"Invalid attribute '{item}', expected KEY=VAL")
+            key, val = item.split("=", 1)
+            merged[key.strip()] = val.strip()
+        return merged or None
 
     def get_option(
         name: str,
@@ -153,8 +183,13 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
 
         return default
 
+    enabled = get_option("proofy", "PROOFY", "proofy", default=ProofyConfig.enabled, type_func=bool)
+    if not enabled:
+        return ProofyConfig(enabled=False)
+
     # Resolve all configuration options
     proofy_config = ProofyConfig(
+        enabled=enabled,
         mode=get_option("proofy_mode", "PROOFY_MODE", "proofy_mode", default=ProofyConfig.mode),
         api_base=get_option(
             "proofy_api_base",
@@ -186,9 +221,9 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
             default=ProofyConfig.output_dir,
         ),
         always_backup=get_option(
-            "proofy_always_backup",
-            "PROOFY_ALWAYS_BACKUP",
-            "proofy_always_backup",
+            "proofy_backup",
+            "PROOFY_BACKUP",
+            "proofy_backup",
             default=ProofyConfig.always_backup,
             type_func=bool,
         ),
@@ -207,24 +242,35 @@ def resolve_options(config: pytest.Config) -> ProofyConfig:
         ),
     )
 
-    attrs_str = get_option(
+    attrs_val = get_option(
         "proofy_run_attributes", "PROOFY_RUN_ATTRIBUTES", "proofy_run_attributes"
     )
-    if attrs_str:
-        proofy_config.run_attributes = parse_attributes(attrs_str)
+    if attrs_val:
+        # CLI can provide a list when the flag is repeated (action="append")
+        merged_attrs: dict[str, str] | None = None
+        if isinstance(attrs_val, list):
+            merged_attrs = parse_attributes_cli(attrs_val)
+        elif isinstance(attrs_val, str):
+            merged_attrs = parse_attributes_str(attrs_val)
+        proofy_config.run_attributes = merged_attrs
 
     return proofy_config
 
 
 def setup_pytest_ini_options(parser: pytest.Parser) -> None:
     """Setup pytest.ini configuration options."""
+    parser.addini("proofy", "Enable Proofy test reporting plugin", type="bool")
     parser.addini("proofy_mode", "Proofy delivery mode")
     parser.addini("proofy_api_base", "Proofy API base URL")
     parser.addini("proofy_token", "Proofy API token")
     parser.addini("proofy_project_id", "Proofy project ID")
     parser.addini("proofy_batch_size", "Batch size for results")
     parser.addini("proofy_output_dir", "Output directory for backups")
-    parser.addini("proofy_always_backup", "Always create backup files")
+    parser.addini("proofy_backup", "Create backup files", type="bool")
     parser.addini("proofy_run_id", "Existing run ID")
     parser.addini("proofy_run_name", "Test run name")
-    parser.addini("proofy_run_attributes", "Custom run attributes (key=value,key2=value2)")
+    parser.addini(
+        "proofy_run_attributes",
+        "Custom run attributes (linelist: one KEY=VAL per line)",
+        type="linelist",
+    )
