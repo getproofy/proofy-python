@@ -48,7 +48,7 @@ class ProofyPytestPlugin:
         self.results_handler = ResultsHandler(
             config=config,
             framework="pytest",
-            enable=not collect_only,
+            disable_output=collect_only,
         )
 
     def _get_test_id(self, item: pytest.Item) -> str:
