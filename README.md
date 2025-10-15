@@ -41,14 +41,15 @@ Below are the global configuration parameters supported by Proofy integrations. 
 
 | Parameter          | Type                       | Default            | Description                                               |
 | ------------------ | -------------------------- | ------------------ | --------------------------------------------------------- |
+| enable             | bool                       | false              | Enable Proofy plugin (required)                           |
 | mode               | enum[str]: live/batch/lazy | live               | Delivery mode controlling when results are sent           |
-| api_base           | str                        | —                  | Base URL of the Proofy API (e.g., https://api.proofy.dev) |
-| token              | str                        | —                  | Bearer token for API authentication                       |
-| project_id         | int                        | —                  | Proofy project identifier                                 |
+| api_base           | str                        | api.proofy.dev     | Base URL of the Proofy API (e.g., https://api.proofy.dev) |
+| token*             | str                        | —                  | Bearer token for API authentication                       |
+| project_id*        | int                        | —                  | Proofy project identifier                                 |
 | batch_size         | int                        | 10                 | Number of results per batch (batch mode)                  |
 | output_dir         | str                        | `proofy-artifacts` | Directory for local backup exports                        |
-| always_backup      | bool                       | false              | Always create local backup files with results             |
-| run_name           | str                        | —                  | Display name for the test run                             |
+| backup             | bool                       | false              | Always create local backup files with results             |
+| run_name           | str                        | Run name RFC3339   | Display name for the test run                             |
 | run_attributes     | dict[str,str]              | —                  | Custom run metadata applied to the entire run             |
 | enable_attachments | bool                       | true               | Enable attachment capture and upload                      |
 
