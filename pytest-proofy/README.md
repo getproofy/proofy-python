@@ -131,10 +131,10 @@ Run attributes allow you to add metadata to your test runs, such as environment 
 
 The following attributes are automatically collected for every run:
 
-- `__proofy_python_version` - Python version (e.g., "3.11.0")
-- `__proofy_platform` - Platform details (e.g., "macOS-14.0-arm64")
-- `__proofy_framework` - Test framework (e.g., "pytest")
-- `__proofy_framework_version` - Framework version (e.g., "7.4.0")
+- `python_version` - Python version (e.g., "3.11.0")
+- `platform` - Platform details (e.g., "macOS-14.0-arm64")
+- `framework` - Test framework (e.g., "pytest")
+- `framework_version` - Framework version (e.g., "7.4.0")
 
 ### Adding Custom Run Attributes
 
