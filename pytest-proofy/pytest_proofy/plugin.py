@@ -15,6 +15,8 @@ from proofy._internal.config import ProofyConfig
 from proofy._internal.hooks import get_plugin_manager, hookimpl
 from proofy._internal.hooks.manager import reset_plugin_manager
 from proofy._internal.results import ResultsHandler
+from proofy._internal.results.limits import clamp_attributes
+from .utils import limit_markers, limit_parameters
 
 # Import from proofy-commons
 from proofy.core.models import ReportingStatus, ResultStatus, RunStatus, TestResult
@@ -94,7 +96,7 @@ class ProofyPytestPlugin:
             attributes.update(
                 {key: value for key, value in mark.kwargs.items() if key not in attributes}
             )
-        return attributes
+        return clamp_attributes(attributes)
 
     def _get_markers(self, item: pytest.Item) -> list[str]:
         """Collect markers (excluding internal ones) as a list of strings with length limit.
@@ -102,14 +104,12 @@ class ProofyPytestPlugin:
         Format: ["name(arg1, arg2, key=value)"]
         Applies a JSON-length limit (default 100) and appends "..." if truncated.
         """
-        limit = 100
         try:
             all_marks = list(item.iter_markers())
         except Exception:
             all_marks = []
 
         formatted: list[str] = []
-        truncated = False
 
         for m in all_marks:
             name = getattr(m, "name", None)
@@ -130,21 +130,9 @@ class ProofyPytestPlugin:
                 params = ", ".join(args + kwargs)
                 marker_str = f"{name}({params})"
 
-            test_list = formatted + [marker_str]
-            test_json = json.dumps(test_list, ensure_ascii=False)
-            if len(test_json) <= limit:
-                formatted.append(marker_str)
-            else:
-                truncated = True
-                break
+            formatted.append(marker_str)
 
-        if truncated:
-            test_list = formatted + ["..."]
-            test_json = json.dumps(test_list, ensure_ascii=False)
-            if len(test_json) <= limit:
-                formatted.append("...")
-
-        return formatted
+        return limit_markers(formatted)
 
     def _get_parameters(self, item: pytest.Item) -> dict[str, Any]:
         """Collect parameters with a JSON-length limit and truncation marker.
@@ -152,38 +140,11 @@ class ProofyPytestPlugin:
         Keeps the mapping shape but ensures the serialized JSON stays under the
         limit by stopping early and optionally appending an indicator key.
         """
-        limit = 100
         raw_params = getattr(getattr(item, "callspec", None), "params", {}) or {}
-        parameters: dict[str, Any] = {}
-        truncated_params = False
         try:
-            for param_key, param_value in raw_params.items():
-                candidate_value = param_value
-                try:
-                    json.dumps(candidate_value, ensure_ascii=False)
-                except Exception:
-                    candidate_value = repr(param_value)
-
-                candidate_parameters = dict(parameters)
-                candidate_parameters[param_key] = candidate_value
-                if len(json.dumps(candidate_parameters, ensure_ascii=False)) <= limit:
-                    parameters = candidate_parameters
-                else:
-                    truncated_params = True
-                    break
-
-            if truncated_params:
-                candidate_parameters = dict(parameters)
-                ellipsis_key = "..."
-                if ellipsis_key in candidate_parameters:
-                    ellipsis_key = "__truncated__"
-                candidate_parameters[ellipsis_key] = True
-                if len(json.dumps(candidate_parameters, ensure_ascii=False)) <= limit:
-                    parameters = candidate_parameters
+            return limit_parameters(raw_params)
         except Exception:
-            parameters = {}
-
-        return parameters
+            return {}
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_sessionstart(self, session: pytest.Session) -> None:

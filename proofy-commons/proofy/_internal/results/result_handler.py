@@ -25,6 +25,7 @@ from ...core.utils import format_datetime_rfc3339, now_rfc3339
 from ..artifacts import ArtifactUploader
 from ..context import get_context_service
 from ..uploader import UploaderWorker, UploadQueue
+from .limits import apply_result_limits, clamp_attributes
 
 _DEFAULT_BATCH_SIZE = 100
 
@@ -203,7 +204,7 @@ class ResultsHandler:
         user_attrs = {}
         if config and getattr(config, "run_attributes", None):
             user_attrs = config.run_attributes or {}
-        prepared_run_attrs = {**system_attrs, **user_attrs}
+        prepared_run_attrs = clamp_attributes({**system_attrs, **user_attrs})
 
         # Initialize session with prepared name/attributes
         self.context.start_session(
@@ -273,6 +274,7 @@ class ResultsHandler:
     def on_test_started(self, result: TestResult) -> None:
         """Handle test start: create server-side result in live mode."""
         try:
+            apply_result_limits(result)
             if not self.client or self.mode != "live":
                 return
             if not result.run_id:
@@ -286,6 +288,8 @@ class ResultsHandler:
 
     def on_test_finished(self, result: TestResult) -> None:
         """Deliver or collect a finished result according to mode."""
+        apply_result_limits(result)
+
         if self.mode == "live":
             self._store_result_live(result)
         elif self.mode == "lazy":
@@ -302,6 +306,7 @@ class ResultsHandler:
             logger.error("Cannot send test result without run_id")
             return None
         try:
+            apply_result_limits(result)
             # Convert datetime to RFC3339 string
             started_at_str = (
                 format_datetime_rfc3339(result.started_at) if result.started_at else None
@@ -341,6 +346,7 @@ class ResultsHandler:
             logger.error("Cannot update test result without run_id and result_id")
             return False
         try:
+            apply_result_limits(result)
             # Convert datetime to RFC3339 string
             ended_at_str = format_datetime_rfc3339(result.ended_at) if result.ended_at else None
 
