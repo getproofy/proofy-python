@@ -225,7 +225,7 @@ from proofy import (
 
 
 def test_dynamic_metadata():
-    set_name("Dynamic Test Name")
+    set_name("Dynamic Test Name") # not work in live mode
     set_description("This description is set at runtime")
     set_severity("high")
 

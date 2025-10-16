@@ -25,6 +25,13 @@ from ...core.utils import format_datetime_rfc3339, now_rfc3339
 from ..artifacts import ArtifactUploader
 from ..context import get_context_service
 from ..uploader import UploaderWorker, UploadQueue
+from .limits import (
+    MESSAGE_LIMIT,
+    NAME_LIMIT,
+    PATH_LIMIT,
+    clamp_attributes,
+    clamp_string,
+)
 
 _DEFAULT_BATCH_SIZE = 100
 
@@ -203,7 +210,7 @@ class ResultsHandler:
         user_attrs = {}
         if config and getattr(config, "run_attributes", None):
             user_attrs = config.run_attributes or {}
-        prepared_run_attrs = {**system_attrs, **user_attrs}
+        prepared_run_attrs = clamp_attributes({**system_attrs, **user_attrs})
 
         # Initialize session with prepared name/attributes
         self.context.start_session(
@@ -243,7 +250,7 @@ class ResultsHandler:
             with contextlib.suppress(Exception):
                 self.context.set_run_attribute("__proofy_error_message", error_message)
 
-        final_attrs = self.context.get_run_attributes().copy()
+        final_attrs = clamp_attributes(self.context.get_run_attributes().copy())
 
         try:
             self.client.update_run(
@@ -307,16 +314,19 @@ class ResultsHandler:
                 format_datetime_rfc3339(result.started_at) if result.started_at else None
             )
             ended_at_str = format_datetime_rfc3339(result.ended_at) if result.ended_at else None
+            name = clamp_string(result.name, NAME_LIMIT, context="result.name") or result.name
+            path = clamp_string(result.path, PATH_LIMIT, context="result.path") or result.path
+            message = clamp_string(result.message, MESSAGE_LIMIT, context="result.message")
 
             response = self.client.create_result(
                 result.run_id,
-                name=result.name,
-                path=result.path,
+                name=name,
+                path=path,
                 status=result.status,
                 started_at=started_at_str,
                 ended_at=ended_at_str,
                 duration_ms=result.effective_duration_ms,
-                message=result.message,
+                message=message,
                 attributes=result.merge_metadata(),
             )
             # Extract the ID from the response dictionary
@@ -343,6 +353,7 @@ class ResultsHandler:
         try:
             # Convert datetime to RFC3339 string
             ended_at_str = format_datetime_rfc3339(result.ended_at) if result.ended_at else None
+            message = clamp_string(result.message, MESSAGE_LIMIT, context="result.message")
 
             self.client.update_result(
                 result.run_id,
@@ -350,7 +361,7 @@ class ResultsHandler:
                 status=result.status,
                 ended_at=ended_at_str,
                 duration_ms=result.effective_duration_ms,
-                message=result.message,
+                message=message,
                 attributes=result.merge_metadata(),
             )
         except Exception as e:

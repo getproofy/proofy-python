@@ -106,7 +106,7 @@ Internal structure includes clients, models, hooks, context, I/O, and export uti
 #### Metadata Functions
 
 ```python
-def set_name(name: str, test_id: Optional[str] = None) -> None
+def set_name(name: str, test_id: Optional[str] = None) -> None # not work live mode
 def set_description(description: str, test_id: Optional[str] = None) -> None
 def set_severity(severity: str, test_id: Optional[str] = None) -> None
 def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None

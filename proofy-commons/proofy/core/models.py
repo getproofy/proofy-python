@@ -8,6 +8,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar
 
+from .._internal.results.limits import (
+    clamp_attributes,
+    limit_dict_strings,
+    limit_list_strings,
+)
 from .utils import format_datetime_rfc3339
 
 
@@ -141,15 +146,19 @@ class TestResult:
 
         # Add attributes
         if self.attributes:
-            merged.update(self.attributes)
+            attributes = clamp_attributes(self.attributes)
+            merged.update(attributes)
 
         if self.tags:
-            merged.update({"__proofy_tags": json.dumps(self.tags)})
+            tags = limit_list_strings(self.tags)
+            merged.update({"__proofy_tags": json.dumps(tags)})
 
         if self.parameters:
-            merged.update({"__proofy_parameters": json.dumps(self.parameters)})
+            parameters = limit_dict_strings(self.parameters)
+            merged.update({"__proofy_parameters": json.dumps(parameters)})
 
         if self.markers:
-            merged.update({"__proofy_markers": json.dumps(self.markers)})
+            markers = limit_list_strings(self.markers)
+            merged.update({"__proofy_markers": json.dumps(markers)})
 
         return merged
