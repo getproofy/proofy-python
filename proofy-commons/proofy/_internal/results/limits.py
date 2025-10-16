@@ -95,7 +95,7 @@ def limit_list_strings(values: list[str], *, limit: int = ATTRIBUTE_VALUE_LIMIT)
         )
         candidate = limited + ["..."]
         if len(json.dumps(candidate, ensure_ascii=False)) <= limit:
-            limited.append("[...]")
+            limited.append("...")
 
     return limited
 
@@ -132,7 +132,7 @@ def limit_dict_strings(
             limit,
         )
         candidate = dict(limited)
-        candidate["..."] = "..."
+        candidate["."] = "."
         if len(json.dumps(candidate, ensure_ascii=False)) <= limit:
             limited = candidate
 

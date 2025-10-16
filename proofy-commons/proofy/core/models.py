@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar
 
-from .._internal.results.limits import (
-    clamp_attributes,
-    limit_dict_strings,
-    limit_list_strings,
-)
 from .utils import format_datetime_rfc3339
 
 
@@ -136,29 +130,3 @@ class TestResult:
             delta = self.ended_at - self.started_at
             return int(delta.total_seconds() * 1000.0)
         return None
-
-    def merge_metadata(self) -> dict[str, Any]:
-        """Merge all metadata sources into unified dict."""
-        merged = {}
-
-        # Start with metadata
-        merged.update(self.metadata)
-
-        # Add attributes
-        if self.attributes:
-            attributes = clamp_attributes(self.attributes)
-            merged.update(attributes)
-
-        if self.tags:
-            tags = limit_list_strings(self.tags)
-            merged.update({"__proofy_tags": json.dumps(tags)})
-
-        if self.parameters:
-            parameters = limit_dict_strings(self.parameters)
-            merged.update({"__proofy_parameters": json.dumps(parameters)})
-
-        if self.markers:
-            markers = limit_list_strings(self.markers)
-            merged.update({"__proofy_markers": json.dumps(markers)})
-
-        return merged

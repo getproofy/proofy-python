@@ -32,6 +32,7 @@ from .limits import (
     clamp_attributes,
     clamp_string,
 )
+from .utils import merge_metadata
 
 _DEFAULT_BATCH_SIZE = 100
 
@@ -327,7 +328,7 @@ class ResultsHandler:
                 ended_at=ended_at_str,
                 duration_ms=result.effective_duration_ms,
                 message=message,
-                attributes=result.merge_metadata(),
+                attributes=merge_metadata(result),
             )
             # Extract the ID from the response dictionary
             result_id = response.get("id")
@@ -362,7 +363,7 @@ class ResultsHandler:
                 ended_at=ended_at_str,
                 duration_ms=result.effective_duration_ms,
                 message=message,
-                attributes=result.merge_metadata(),
+                attributes=merge_metadata(result),
             )
         except Exception as e:
             result.reporting_status = ReportingStatus.FAILED

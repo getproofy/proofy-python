@@ -88,6 +88,7 @@ markers = [
     "e2e: End-to-end tests",
     "slow: Slow running tests",
     "proofy_attributes: proofy attributes markers",
+    "perf: Performance tests",
 ]
 
 [tool.mypy]
