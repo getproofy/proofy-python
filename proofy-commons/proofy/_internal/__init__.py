@@ -1,14 +1,16 @@
-"""Private implementation facade for Proofy internals.
+"""Private internals for Proofy.
 
-Everything under `proofy._internal` is considered unstable and may change
-without notice.
+This package's ``__init__`` is intentionally import-light to avoid circular
+imports. Import concrete submodules directly, e.g.:
+
+    from proofy._internal.logger import get_logger
+    from proofy._internal.context import get_context_service
+    from proofy._internal.results import ResultsHandler
+    from proofy._internal.artifacts import ArtifactUploader
 """
 
 from __future__ import annotations
 
-__all__ = [
-    "context",
-    "results",
-    "artifacts",
-    "uploader",
-]
+# Do not import submodules here. Keep this file minimal.
+
+__all__: list[str] = []

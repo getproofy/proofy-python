@@ -11,10 +11,9 @@ from typing import IO, Any, Literal, cast
 
 import httpx
 
-from ..logging_scopes import httpx_debug_only_here
-from ..models import ResultStatus, RunStatus
+from ..._internal.logger import httpx_debug_only_here
+from ..models import ArtifactType, ResultStatus, RunStatus
 from .base import (
-    ArtifactType,
     ClientConfig,
     ClientHelpers,
     ProofyConnectionError,

@@ -3,42 +3,34 @@
 This module installs a logging filter that:
 - Always suppresses httpx/httpcore INFO-level messages (the noisy request lines)
 - Allows DEBUG-level httpx/httpcore messages only inside a context manager
-  and only when the environment variable PROOFYDEBUG is enabled.
+  and only when Proofy debug logging is enabled (PFDEBUG, PF_LOG_LEVEL=DEBUG,
+  or the legacy PROOFYDEBUG flag) and the scope is active.
 
 Usage:
-    from proofy.core.logging_scopes import httpx_debug_only_here
+    from proofy._internal.logger.httpx_logging import httpx_debug_only_here
 
     with httpx_debug_only_here():
-        # Only within this block, and only if PROOFYDEBUG=true, httpx/httpcore
-        # DEBUG logs will be emitted. INFO remains suppressed globally.
+        # Only within this block, and only if Proofy debug logging is enabled,
+        # httpx/httpcore DEBUG logs will be emitted. INFO remains suppressed globally.
         ...
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
+
+from .logging import is_debug_logging_enabled
 
 # Context flag to gate DEBUG records during the scope
 _HTTPX_DEBUG_SCOPE: ContextVar[bool] = ContextVar("proofy_httpx_debug_scope", default=False)
 
 
-def _is_truthy(value: str | None) -> bool:
-    """Parse common truthy strings to bool.
-
-    Accepts: "true", "1", "yes", "on" (case-insensitive).
-    """
-    if value is None:
-        return False
-    return value.strip().lower() in {"true", "1", "yes", "on"}
-
-
 def _is_proofy_debug_enabled() -> bool:
-    """Return True if PROOFYDEBUG env var enables debug logging scopes."""
-    return _is_truthy(os.getenv("PROOFYDEBUG"))
+    """Return True if Proofy debug logging is enabled via global settings."""
+    return is_debug_logging_enabled()
 
 
 class _HttpxDebugGate(logging.Filter):
@@ -46,7 +38,7 @@ class _HttpxDebugGate(logging.Filter):
 
     - Drops INFO records from httpx/httpcore unconditionally (keeps logs quiet).
     - Allows DEBUG records from httpx/httpcore only when both conditions hold:
-      * PROOFYDEBUG is enabled at process level, and
+      * Proofy debug logging is enabled at process level, and
       * The current execution is inside the httpx_debug_only_here() scope.
     - Other levels (WARNING and above) pass through unaffected.
     """
@@ -82,13 +74,13 @@ def _install_gate_once() -> None:
 def httpx_debug_only_here() -> Generator[None, None, None]:
     """Temporarily allow httpx/httpcore DEBUG logs within this scope.
 
-    Effect is active only when the environment variable PROOFYDEBUG is truthy.
+    Effect is active only when Proofy debug logging is enabled at process level.
     INFO messages remain suppressed globally regardless of this setting.
     """
     _install_gate_once()
 
     if not _is_proofy_debug_enabled():
-        # No-op scope when PROOFYDEBUG is disabled
+        # No-op scope when Proofy debug logging is disabled
         yield
         return
 

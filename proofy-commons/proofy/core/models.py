@@ -38,6 +38,17 @@ class ReportingStatus(int, Enum):
     FAILED = -1
 
 
+class ArtifactType(int, Enum):
+    """Artifact type values per API.md."""
+
+    TRACE = 1
+    SCREENSHOT = 2
+    LOG = 3
+    VIDEO = 4
+    ATTACHMENT = 5
+    OTHER = 6
+
+
 @dataclass
 class Attachment:
     """Test attachment with file information."""

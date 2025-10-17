@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 import httpx
 import pytest
 import respx
-from proofy.core.client import ArtifactType, Client
-from proofy.core.models import ResultStatus, RunStatus
+from proofy.core.client import Client
+from proofy.core.models import ArtifactType, ResultStatus, RunStatus
 
 
 @respx.mock

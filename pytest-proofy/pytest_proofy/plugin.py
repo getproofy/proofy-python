@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from collections.abc import Generator
 from datetime import datetime, timezone
@@ -13,6 +12,7 @@ import pytest
 from proofy._internal.config import ProofyConfig
 from proofy._internal.hooks import get_plugin_manager, hookimpl
 from proofy._internal.hooks.manager import reset_plugin_manager
+from proofy._internal.logger import get_logger
 from proofy._internal.results import ResultsHandler
 
 # Import from proofy-commons
@@ -25,7 +25,7 @@ from .config import (
     setup_pytest_ini_options,
 )
 
-logger = logging.getLogger("ProofyPytestPlugin")
+logger = get_logger(__name__)
 
 
 class ProofyPytestPlugin:

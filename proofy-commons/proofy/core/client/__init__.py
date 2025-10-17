@@ -2,7 +2,6 @@
 
 from .async_client import AsyncClient
 from .base import (
-    ArtifactType,
     ClientConfig,
     PresignUpload,
     ProofyClientError,
@@ -13,7 +12,6 @@ from .base import (
 from .sync_client import Client
 
 __all__ = [
-    "ArtifactType",
     "AsyncClient",
     "Client",
     "ClientConfig",

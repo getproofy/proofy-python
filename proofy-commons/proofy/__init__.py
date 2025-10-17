@@ -19,7 +19,6 @@ from .core.api import (
     set_run_name,
     set_severity,
 )
-from .core.client import ArtifactType
 
 # Decorators
 from .core.decorators import (
@@ -30,6 +29,7 @@ from .core.decorators import (
     tags,
     title,
 )
+from .core.models import ArtifactType
 
 # Version info
 __version__ = "0.1.1"

@@ -11,9 +11,8 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
-from ...core.client import ArtifactType
 from ...core.client.base import ClientHelpers
-from ...core.models import Attachment, TestResult
+from ...core.models import ArtifactType, Attachment, TestResult
 from ..uploader import UploadArtifactJob, UploadQueue
 from .attachments_cache import is_cached_path
 

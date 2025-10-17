@@ -9,8 +9,7 @@ from typing import IO, Any
 
 from ..._internal.config import ProofyConfig
 from ..._internal.hooks import get_plugin_manager
-from ...core.client import ArtifactType
-from ...core.models import Attachment, TestResult
+from ...core.models import ArtifactType, Attachment, TestResult
 from ..artifacts import (
     cache_attachment,
     cache_attachment_from_bytes,

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import IO, Any
 
 from .._internal.context import SessionContext, get_context_service
-from .client import ArtifactType
+from .models import ArtifactType
 
 _context_service = get_context_service()
 

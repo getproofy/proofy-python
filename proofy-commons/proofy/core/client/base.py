@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -14,20 +13,10 @@ from typing import Any, Literal, cast
 
 import httpx
 
+from ..._internal.logger import get_logger
 from ..utils import format_datetime_rfc3339
 
-logger = logging.getLogger("ProofyClient")
-
-
-class ArtifactType(int, Enum):
-    """Artifact type values per API.md."""
-
-    TRACE = 1
-    SCREENSHOT = 2
-    LOG = 3
-    VIDEO = 4
-    ATTACHMENT = 5
-    OTHER = 6
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -203,7 +192,6 @@ class ClientHelpers:
 
 
 __all__ = [
-    "ArtifactType",
     "ClientConfig",
     "ClientHelpers",
     "PresignUpload",
