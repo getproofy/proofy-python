@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 from proofy._internal.results.limits import (
     ATTRIBUTE_KEY_LIMIT,
     ATTRIBUTE_VALUE_LIMIT,
-    MESSAGE_LIMIT,
     NAME_LIMIT,
     clamp_attributes,
     clamp_string,
-    limit_dict_strings,
-    limit_list_strings,
 )
 
 
@@ -62,45 +57,11 @@ def test_clamp_attributes_skips_duplicate_clamped_keys(
     assert any("duplicates existing key" in record.message for record in caplog.records)
 
 
-def test_limit_list_strings_respects_json_limit():
-    """Lists should truncate when serialised length exceeds limit."""
+def test_clamp_string_with_suffix():
+    """Suffix should be appended to the clamped value if the limit is exceeded."""
 
-    values = ["short", "another", "third"]
-    limit = len(json.dumps(values[:2], ensure_ascii=False)) + 7  # Force truncation on third
+    value = "x" * 30
 
-    limited = limit_list_strings(values, limit=limit)
+    result = clamp_string(value, 20, suffix="...")
 
-    assert limited == values[:2] + ["..."]
-
-
-def test_limit_list_strings_handles_empty():
-    """Empty lists return empty lists."""
-
-    assert limit_list_strings([]) == []
-
-
-def test_limit_dict_strings_truncates_and_marks_overflow():
-    """Dicts should truncate and append overflow marker."""
-
-    values = {"one": "a", "two": "b", "three": "c"}
-    limit = len(json.dumps({"one": "a", "two": "b"}, ensure_ascii=False)) + 10
-
-    limited = limit_dict_strings(values, limit=limit)
-
-    assert limited["one"] == "a"
-    assert limited["two"] == "b"
-    assert limited["."] == "."
-
-
-def test_limit_dict_strings_falls_back_to_repr_for_non_serialisable():
-    """Non serialisable values should be coerced to repr for the limit check."""
-
-    class NonSerializable:  # pragma: no cover - only used for repr string
-        def __repr__(self) -> str:  # noqa: D401 - small repr method
-            return "<NonSerializable>"
-
-    values = {"key": NonSerializable()}
-
-    limited = limit_dict_strings(values, limit=MESSAGE_LIMIT)
-
-    assert limited == values
+    assert result == value[:17] + "..."

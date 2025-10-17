@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Mapping
 from typing import Any
@@ -21,15 +20,20 @@ def clamp_string(
     limit: int,
     *,
     context: str | None = None,
+    suffix: str | None = None,
 ) -> str | None:
-    """Clamp *value* to *limit* characters when possible."""
+    """Clamp *value* to *limit* characters when possible. If *suffix* is provided, it will be appended to the clamped value if the limit is exceeded."""
 
     if value is None:
         return None
     if len(value) <= limit:
         return value
 
-    clamped = value[:limit]
+    if suffix:
+        limit -= len(suffix)
+    if limit < 0:
+        return suffix
+    clamped = value[:limit] + (suffix or "")
     label = context or "string"
     logger.debug("Clamped %s from %d to %d characters", label, len(value), limit)
     return clamped
@@ -68,72 +72,5 @@ def clamp_attributes(attributes: Mapping[str, Any] | None) -> dict[str, Any]:
             limited_value = value
 
         limited[clamped_key] = limited_value
-
-    return limited
-
-
-def limit_list_strings(values: list[str], *, limit: int = ATTRIBUTE_VALUE_LIMIT) -> list[str]:
-    """Clamp marker payload to the configured JSON length limit."""
-
-    if not values:
-        return []
-
-    limited: list[str] = []
-    for value in values:
-        candidate = limited + [value]
-        if len(json.dumps(candidate, ensure_ascii=False)) <= limit:
-            limited.append(value)
-        else:
-            break
-
-    if len(limited) < len(values):
-        logger.debug(
-            "Truncated values from %d to %d entries to satisfy %d-byte JSON limit",
-            len(values),
-            len(limited),
-            limit,
-        )
-        candidate = limited + ["..."]
-        if len(json.dumps(candidate, ensure_ascii=False)) <= limit:
-            limited.append("...")
-
-    return limited
-
-
-def limit_dict_strings(
-    values: Mapping[str, Any] | None, *, limit: int = ATTRIBUTE_VALUE_LIMIT
-) -> dict[str, Any]:
-    """Clamp dictionary of strings to the configured JSON length limit."""
-
-    if not values:
-        return {}
-
-    limited: dict[str, Any] = {}
-
-    for key, value in values.items():
-        candidate_value = value
-        try:
-            json.dumps(candidate_value, ensure_ascii=False)
-        except Exception:
-            candidate_value = repr(value)
-
-        candidate = dict(limited)
-        candidate[key] = candidate_value
-        if len(json.dumps(candidate, ensure_ascii=False)) <= limit:
-            limited[key] = value
-        else:
-            break
-
-    if len(limited) < len(values):
-        logger.debug(
-            "Truncated values from %d to %d entries to satisfy %d-byte JSON limit",
-            len(values),
-            len(limited),
-            limit,
-        )
-        candidate = dict(limited)
-        candidate["."] = "."
-        if len(json.dumps(candidate, ensure_ascii=False)) <= limit:
-            limited = candidate
 
     return limited
