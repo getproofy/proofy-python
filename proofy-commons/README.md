@@ -114,6 +114,8 @@ def add_tag(tag: str, test_id: Optional[str] = None) -> None
 def add_tags(tags: List[str], test_id: Optional[str] = None) -> None
 ```
 
+**Note:** `set_name()` does not work in live mode because the test result is created at the beginning of the test execution and the name cannot be changed dynamically afterwards. Use decorators (`@name`) for setting test names in live mode.
+
 #### Attachment Functions
 
 ```python

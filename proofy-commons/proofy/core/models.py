@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -131,25 +130,3 @@ class TestResult:
             delta = self.ended_at - self.started_at
             return int(delta.total_seconds() * 1000.0)
         return None
-
-    def merge_metadata(self) -> dict[str, Any]:
-        """Merge all metadata sources into unified dict."""
-        merged = {}
-
-        # Start with metadata
-        merged.update(self.metadata)
-
-        # Add attributes
-        if self.attributes:
-            merged.update(self.attributes)
-
-        if self.tags:
-            merged.update({"__proofy_tags": json.dumps(self.tags)})
-
-        if self.parameters:
-            merged.update({"__proofy_parameters": json.dumps(self.parameters)})
-
-        if self.markers:
-            merged.update({"__proofy_markers": json.dumps(self.markers)})
-
-        return merged
