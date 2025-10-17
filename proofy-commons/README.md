@@ -106,13 +106,15 @@ Internal structure includes clients, models, hooks, context, I/O, and export uti
 #### Metadata Functions
 
 ```python
-def set_name(name: str, test_id: Optional[str] = None) -> None # not work live mode
+def set_name(name: str, test_id: Optional[str] = None) -> None
 def set_description(description: str, test_id: Optional[str] = None) -> None
 def set_severity(severity: str, test_id: Optional[str] = None) -> None
 def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None
 def add_tag(tag: str, test_id: Optional[str] = None) -> None
 def add_tags(tags: List[str], test_id: Optional[str] = None) -> None
 ```
+
+**Note:** `set_name()` does not work in live mode because the test result is created at the beginning of the test execution and the name cannot be changed dynamically afterwards. Use decorators (`@name`) for setting test names in live mode.
 
 #### Attachment Functions
 
