@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytest-proofy"
-version = "0.1.0"
+version = "0.1.1"
 description = "Pytest plugin for Proofy test reporting"
 readme = "README.md"
 requires-python = ">=3.10"
