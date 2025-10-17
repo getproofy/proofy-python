@@ -200,42 +200,6 @@ jobs:
         with:
           packages-dir: dist/pytest-proofy/dist/
 
-  publish-to-test-pypi:
-    name: "Publish to Test PyPI"
-    runs-on: ubuntu-latest
-    needs: [validate-tag, create-release]
-    if: always() # Publish all versions to Test PyPI
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/project/proofy-python/
-    permissions:
-      id-token: write # For trusted publishing
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-packages
-          path: dist/
-
-      - name: Publish proofy-commons to Test PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          packages-dir: dist/proofy-commons/dist/
-
-      - name: Wait for proofy-python to be available
-        run: |
-          echo "Waiting for proofy-python to be available on Test PyPI..."
-          sleep 30
-          # Verify the package is available
-          curl -f "https://test.pypi.org/pypi/proofy-python/json" || exit 1
-
-      - name: Publish pytest-proofy to Test PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          packages-dir: dist/pytest-proofy/dist/
-          verbose: true
 
   post-release:
     name: "Post Release Tasks"
