@@ -8,6 +8,8 @@ from importlib import metadata
 from importlib.metadata import PackageNotFoundError
 from typing import Any
 
+from proofy._internal.constants import PredefinedAttribute
+
 
 def collect_system_attributes() -> dict[str, Any]:
     """Collect system information as run attributes.
@@ -18,8 +20,8 @@ def collect_system_attributes() -> dict[str, Any]:
         - Operating system
     """
     return {
-        "__proofy_python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        "__proofy_platform": platform.platform(),
+        PredefinedAttribute.PYTHON_VERSION.value: f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        PredefinedAttribute.PLATFORM.value: platform.platform(),
     }
 
 

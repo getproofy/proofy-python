@@ -18,6 +18,7 @@ from ..artifacts import (
     is_cached_path,
     should_cache_for_mode,
 )
+from ..constants import PredefinedAttribute
 from .backend import ContextBackend, ThreadLocalBackend
 from .models import SessionContext
 
@@ -113,11 +114,11 @@ class ContextService:
 
     def set_description(self, description: str) -> None:
         if ctx := self.test_ctx:
-            ctx.attributes["__proofy_description"] = description
+            ctx.attributes[PredefinedAttribute.DESCRIPTION.value] = description
 
     def set_severity(self, severity: str) -> None:
         if ctx := self.test_ctx:
-            ctx.attributes["__proofy_severity"] = severity
+            ctx.attributes[PredefinedAttribute.SEVERITY.value] = severity
 
     def add_tag(self, tag: str) -> None:
         if (ctx := self.test_ctx) and tag not in ctx.tags:
