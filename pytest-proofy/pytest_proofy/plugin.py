@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 from proofy._internal.config import ProofyConfig
+from proofy._internal.constants import PredefinedAttribute
 from proofy._internal.hooks import get_plugin_manager, hookimpl
 from proofy._internal.hooks.manager import reset_plugin_manager
 from proofy._internal.results import ResultsHandler
@@ -159,8 +160,7 @@ class ProofyPytestPlugin:
         self._start_time = datetime.now(timezone.utc)
 
         attributes = self._get_attributes(item)
-        tags = attributes.pop("__proofy_tags", [])
-        display_name = attributes.pop("__proofy_name", None)
+        display_name = attributes.pop(PredefinedAttribute.NAME.value, None)
 
         result = TestResult(
             id=self._get_test_id(item),
@@ -171,7 +171,6 @@ class ProofyPytestPlugin:
             started_at=self._start_time,
             run_id=self.run_id,
             attributes=attributes,
-            tags=tags,
             parameters=self._get_parameters(item),
             markers=self._get_markers(item),
         )

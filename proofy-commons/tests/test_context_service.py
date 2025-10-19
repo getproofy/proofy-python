@@ -70,12 +70,9 @@ def test_session_and_test_lifecycle_and_hooks(monkeypatch):
     cs.set_name("new-name")
     cs.set_attribute("k", "v")
     cs.add_attributes(x=1, y=2)
-    cs.add_tag("tag1")
-    cs.add_tags(["tag1", "tag2"])  # ensure dedupe
     assert tr.name == "new-name"
     assert tr.attributes["k"] == "v"
     assert tr.attributes["x"] == 1 and tr.attributes["y"] == 2
-    assert tr.tags == ["tag1", "tag2"]
 
     # finish test clears current
     cs.finish_test(tr)

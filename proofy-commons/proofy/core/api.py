@@ -8,20 +8,13 @@ from typing import IO, Any
 
 from .._internal.context import SessionContext, get_context_service
 from .client import ArtifactType
+from .models import Severity
 
 _context_service = get_context_service()
 
 
 def add_attributes(**kwargs: Any) -> None:
     _context_service.add_attributes(**kwargs)
-
-
-def add_tag(tag: str) -> None:
-    _context_service.add_tag(tag)
-
-
-def add_tags(tags: list[str]) -> None:
-    _context_service.add_tags(tags)
 
 
 def set_name(name: str) -> None:
@@ -83,7 +76,7 @@ def set_description(description: str) -> None:
     _context_service.set_description(description)
 
 
-def set_severity(severity: str) -> None:
+def set_severity(severity: Severity | str) -> None:
     _context_service.set_severity(severity)
 
 
@@ -128,8 +121,6 @@ __all__ = [
     "add_attachment",
     "add_attributes",
     "add_run_attributes",
-    "add_tag",
-    "add_tags",
     "get_current_run_id",
     "get_current_test_id",
     "get_run_attributes",

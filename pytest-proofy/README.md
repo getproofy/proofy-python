@@ -5,7 +5,7 @@ Pytest plugin for Proofy test reporting with real-time results and rich metadata
 ## Features
 
 - **Multiple Reporting Modes**: Live, Lazy, and Batch reporting
-- **Rich Metadata**: Decorators for test description, severity, tags, and custom attributes
+- **Rich Metadata**: Decorators for test description, severity, and custom attributes
 - **Attachment Support**: Add screenshots, logs, and other files to test results
 - **Flexible Configuration**: CLI, environment variables, and pytest.ini support
 - **Local Backup**: Automatic fallback to local JSON export
@@ -203,12 +203,11 @@ def test_example():
 ### Decorators
 
 ```python
-from proofy import name, description, severity, tags, attributes
+from proofy import name, description, severity, attributes
 
 @name("User Login Test")
 @description("Validates user authentication with valid credentials")
 @severity("critical")
-@tags("auth", "smoke")
 @attributes(component="auth", browser="chrome")
 def test_user_login():
     # Test implementation
@@ -220,7 +219,7 @@ def test_user_login():
 ```python
 from proofy import (
     set_name, set_description, set_severity,
-    add_tag, add_attributes, add_attachment, ArtifactType
+    add_attributes, add_attachment, ArtifactType
 )
 
 
