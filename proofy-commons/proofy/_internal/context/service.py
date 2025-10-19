@@ -10,7 +10,7 @@ from typing import IO, Any
 from ..._internal.config import ProofyConfig
 from ..._internal.hooks import get_plugin_manager
 from ...core.client import ArtifactType
-from ...core.models import Attachment, TestResult
+from ...core.models import Attachment, Severity, TestResult
 from ..artifacts import (
     cache_attachment,
     cache_attachment_from_bytes,
@@ -18,6 +18,7 @@ from ..artifacts import (
     is_cached_path,
     should_cache_for_mode,
 )
+from ..constants import PredefinedAttribute
 from .backend import ContextBackend, ThreadLocalBackend
 from .models import SessionContext
 
@@ -113,21 +114,12 @@ class ContextService:
 
     def set_description(self, description: str) -> None:
         if ctx := self.test_ctx:
-            ctx.attributes["__proofy_description"] = description
+            ctx.attributes[PredefinedAttribute.DESCRIPTION.value] = description
 
-    def set_severity(self, severity: str) -> None:
+    def set_severity(self, severity: Severity | str) -> None:
         if ctx := self.test_ctx:
-            ctx.attributes["__proofy_severity"] = severity
-
-    def add_tag(self, tag: str) -> None:
-        if (ctx := self.test_ctx) and tag not in ctx.tags:
-            ctx.tags.append(tag)
-
-    def add_tags(self, tags: list[str]) -> None:
-        if ctx := self.test_ctx:
-            new_tags = [t for t in tags if t not in ctx.tags]
-            if new_tags:
-                ctx.tags.extend(new_tags)
+            value = severity.value if isinstance(severity, Severity) else severity
+            ctx.attributes[PredefinedAttribute.SEVERITY.value] = value
 
     # Run-level metadata
     def set_run_attribute(self, key: str, value: Any) -> None:

@@ -23,6 +23,7 @@ from ...core.models import (
 from ...core.system_info import collect_system_attributes, get_framework_version
 from ...core.utils import format_datetime_rfc3339, now_rfc3339
 from ..artifacts import ArtifactUploader
+from ..constants import PredefinedAttribute
 from ..context import get_context_service
 from ..uploader import UploaderWorker, UploadQueue
 from .limits import (
@@ -205,9 +206,9 @@ class ResultsHandler:
 
         # Build run attributes: system + user-provided
         system_attrs = collect_system_attributes()
-        system_attrs["__proofy_framework"] = self.framework
+        system_attrs[PredefinedAttribute.FRAMEWORK.value] = self.framework
         if framework_version := get_framework_version(self.framework):
-            system_attrs["__proofy_framework_version"] = framework_version
+            system_attrs[PredefinedAttribute.FRAMEWORK_VERSION.value] = framework_version
         user_attrs = {}
         if config and getattr(config, "run_attributes", None):
             user_attrs = config.run_attributes or {}
@@ -249,7 +250,9 @@ class ResultsHandler:
         # Merge final run attributes
         if error_message is not None:
             with contextlib.suppress(Exception):
-                self.context.set_run_attribute("__proofy_error_message", error_message)
+                self.context.set_run_attribute(
+                    PredefinedAttribute.ERROR_MESSAGE.value, error_message
+                )
 
         final_attrs = clamp_attributes(self.context.get_run_attributes().copy())
 
