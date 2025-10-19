@@ -38,6 +38,15 @@ class ReportingStatus(int, Enum):
     FAILED = -1
 
 
+class Severity(str, Enum):
+    """Severity of a test result."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
 @dataclass
 class Attachment:
     """Test attachment with file information."""
@@ -51,16 +60,6 @@ class Attachment:
     original_path: str | None = None
     sha256: str | None = None
     artifact_type: int | None = None
-
-
-@dataclass
-class FixtureResult:
-    """Result of test fixture execution."""
-
-    name: str
-    setup_ok: bool = True
-    teardown_ok: bool = True
-    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -99,7 +98,6 @@ class TestResult:
 
     # Related entities
     attachments: list[Attachment] = field(default_factory=list)
-    fixtures: list[FixtureResult] = field(default_factory=list)
 
     reporting_status: ReportingStatus = ReportingStatus.NOT_STARTED
 

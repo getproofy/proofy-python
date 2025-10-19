@@ -7,6 +7,8 @@ from typing import Any
 from proofy._internal.constants import PredefinedAttribute
 from proofy._internal.hooks.manager import get_plugin_manager
 
+from .models import Severity
+
 _plugin_manager = get_plugin_manager()
 
 
@@ -35,8 +37,9 @@ def description(description: str) -> Any:
     return attributes(**{PredefinedAttribute.DESCRIPTION.value: description})  # type: ignore[arg-type]
 
 
-def severity(level: str) -> Any:
-    return attributes(**{PredefinedAttribute.SEVERITY.value: level})  # type: ignore[arg-type]
+def severity(level: Severity | str) -> Any:
+    value = level.value if isinstance(level, Severity) else level
+    return attributes(**{PredefinedAttribute.SEVERITY.value: value})  # type: ignore[arg-type]
 
 
 def tags(*tags: str) -> Any:

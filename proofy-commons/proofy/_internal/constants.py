@@ -9,8 +9,8 @@ from enum import Enum
 
 
 class PredefinedAttribute(str, Enum):
-    NAME = "__proofy_name"
-    DESCRIPTION = "description"
+    NAME = "__proofy_display_name"  # only used for display name, not sent to the server
+    DESCRIPTION = "__proofy_description"
     SEVERITY = "severity"
     TAGS = "__proofy_tags"
     PARAMETERS = "__proofy_parameters"

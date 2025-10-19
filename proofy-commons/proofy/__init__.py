@@ -30,6 +30,7 @@ from .core.decorators import (
     tags,
     title,
 )
+from .core.models import Severity
 
 # Version info
 __version__ = "0.1.1"
@@ -65,4 +66,5 @@ __all__ = [
     "tags",
     "attributes",
     "ArtifactType",
+    "Severity",
 ]

@@ -8,6 +8,7 @@ from typing import IO, Any
 
 from .._internal.context import SessionContext, get_context_service
 from .client import ArtifactType
+from .models import Severity
 
 _context_service = get_context_service()
 
@@ -83,7 +84,7 @@ def set_description(description: str) -> None:
     _context_service.set_description(description)
 
 
-def set_severity(severity: str) -> None:
+def set_severity(severity: Severity | str) -> None:
     _context_service.set_severity(severity)
 
 

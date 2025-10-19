@@ -10,7 +10,7 @@ from typing import IO, Any
 from ..._internal.config import ProofyConfig
 from ..._internal.hooks import get_plugin_manager
 from ...core.client import ArtifactType
-from ...core.models import Attachment, TestResult
+from ...core.models import Attachment, Severity, TestResult
 from ..artifacts import (
     cache_attachment,
     cache_attachment_from_bytes,
@@ -116,9 +116,10 @@ class ContextService:
         if ctx := self.test_ctx:
             ctx.attributes[PredefinedAttribute.DESCRIPTION.value] = description
 
-    def set_severity(self, severity: str) -> None:
+    def set_severity(self, severity: Severity | str) -> None:
         if ctx := self.test_ctx:
-            ctx.attributes[PredefinedAttribute.SEVERITY.value] = severity
+            value = severity.value if isinstance(severity, Severity) else severity
+            ctx.attributes[PredefinedAttribute.SEVERITY.value] = value
 
     def add_tag(self, tag: str) -> None:
         if (ctx := self.test_ctx) and tag not in ctx.tags:

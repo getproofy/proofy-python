@@ -7,7 +7,7 @@ import proofy as api
 import pytest
 from proofy._internal.context.backend import ThreadLocalBackend
 from proofy._internal.context.service import ContextService
-from proofy.core.models import TestResult
+from proofy.core.models import Severity, TestResult
 
 
 @pytest.fixture(autouse=True)
@@ -32,7 +32,7 @@ def test_metadata_conveniences_and_getters(_fresh_service: ContextService):
 
     api.set_name("n1")
     api.set_description("desc")
-    api.set_severity("critical")
+    api.set_severity(Severity.CRITICAL)
     api.add_attributes(a=1)
     api.add_tag("x")
     api.add_tags(["x", "y"])  # dedupe behavior asserted in service tests
