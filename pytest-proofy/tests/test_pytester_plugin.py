@@ -29,7 +29,7 @@ def test_backup_and_metadata_with_marks(pytester: pytest.Pytester) -> None:
         test_sample="""
         import pytest
 
-        @pytest.mark.proofy_attributes(team="A", __proofy_name="My Special Name")
+        @pytest.mark.proofy_attributes(team="A", __proofy_display_name="My Special Name")
         @pytest.mark.slow
         def test_pass():
             assert True
