@@ -12,7 +12,6 @@ class PredefinedAttribute(str, Enum):
     NAME = "__proofy_display_name"  # only used for display name, not sent to the server
     DESCRIPTION = "__proofy_description"
     SEVERITY = "severity"
-    TAGS = "__proofy_tags"
     PARAMETERS = "__proofy_parameters"
     MARKERS = "__proofy_markers"
 

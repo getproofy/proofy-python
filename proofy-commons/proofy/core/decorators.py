@@ -42,16 +42,10 @@ def severity(level: Severity | str) -> Any:
     return attributes(**{PredefinedAttribute.SEVERITY.value: value})  # type: ignore[arg-type]
 
 
-def tags(*tags: str) -> Any:
-    # Store under special key for pytest plugin to split into Result.tags
-    return attributes(**{PredefinedAttribute.TAGS.value: list(tags)})  # type: ignore[arg-type]
-
-
 __all__ = [
     "attributes",
     "description",
     "name",
     "severity",
-    "tags",
     "title",
 ]

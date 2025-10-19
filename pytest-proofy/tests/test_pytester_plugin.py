@@ -29,7 +29,7 @@ def test_backup_and_metadata_with_marks(pytester: pytest.Pytester) -> None:
         test_sample="""
         import pytest
 
-        @pytest.mark.proofy_attributes(team="A", __proofy_tags=["t1", "t2"], __proofy_name="My Special Name")
+        @pytest.mark.proofy_attributes(team="A", __proofy_name="My Special Name")
         @pytest.mark.slow
         def test_pass():
             assert True
@@ -59,7 +59,6 @@ def test_backup_and_metadata_with_marks(pytester: pytest.Pytester) -> None:
     assert pass_item["name"] == "My Special Name"
     assert pass_item["status"] == 1  # ResultStatus.PASSED
     assert pass_item["attributes"].get("team") == "A"
-    assert set(pass_item["tags"]) == {"t1", "t2"}
     assert "slow" in pass_item.get("markers", [])
 
     # Failed assertion remains FAILED
@@ -220,23 +219,21 @@ def test_proofy_decorators_work_when_plugin_disabled(pytester: pytest.Pytester) 
     pytester.makepyfile(
         test_decorators="""
         import pytest
-        from proofy import name, description, severity, tags, attributes
-        from proofy import set_name, add_tag, add_attributes, add_data
+        from proofy import name, description, severity, attributes
+        from proofy import set_name, add_attributes, add_data
 
         @name("Test Name")
         @description("Test Description")
         @severity("critical")
-        @tags("tag1", "tag2")
         @attributes(component="auth")
         def test_with_decorators():
             # These should work or be no-ops when plugin disabled
             set_name("Runtime Name")
-            add_tag("runtime_tag")
             add_attributes(env="test")
             add_data("test data", name="test_data")
             assert True
         
-        @pytest.mark.proofy_attributes(team="A", __proofy_tags=["t1"])
+        @pytest.mark.proofy_attributes(team="A")
         def test_with_pytest_marks():
             assert True
         """

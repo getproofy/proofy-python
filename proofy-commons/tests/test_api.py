@@ -34,14 +34,10 @@ def test_metadata_conveniences_and_getters(_fresh_service: ContextService):
     api.set_description("desc")
     api.set_severity(Severity.CRITICAL)
     api.add_attributes(a=1)
-    api.add_tag("x")
-    api.add_tags(["x", "y"])  # dedupe behavior asserted in service tests
-
     assert tr.name == "n1"
     assert tr.attributes["a"] == 1
     assert tr.attributes["__proofy_description"] == "desc"
     assert tr.attributes["__proofy_severity"] == "critical"
-    assert tr.tags == ["x", "y"]
     assert api.get_current_test_id() == "id-1"
 
     # run getters

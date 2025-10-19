@@ -87,7 +87,6 @@ class TestResult:
     parameters: dict[str, Any] = field(default_factory=dict)
     markers: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    tags: list[str] = field(default_factory=list)
     attributes: dict[str, Any] = field(default_factory=dict)
 
     # Error information

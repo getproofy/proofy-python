@@ -121,16 +121,6 @@ class ContextService:
             value = severity.value if isinstance(severity, Severity) else severity
             ctx.attributes[PredefinedAttribute.SEVERITY.value] = value
 
-    def add_tag(self, tag: str) -> None:
-        if (ctx := self.test_ctx) and tag not in ctx.tags:
-            ctx.tags.append(tag)
-
-    def add_tags(self, tags: list[str]) -> None:
-        if ctx := self.test_ctx:
-            new_tags = [t for t in tags if t not in ctx.tags]
-            if new_tags:
-                ctx.tags.extend(new_tags)
-
     # Run-level metadata
     def set_run_attribute(self, key: str, value: Any) -> None:
         if sess := self.session_ctx:

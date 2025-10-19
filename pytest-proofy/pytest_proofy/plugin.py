@@ -160,7 +160,6 @@ class ProofyPytestPlugin:
         self._start_time = datetime.now(timezone.utc)
 
         attributes = self._get_attributes(item)
-        tags = attributes.pop(PredefinedAttribute.TAGS.value, [])
         display_name = attributes.pop(PredefinedAttribute.NAME.value, None)
 
         result = TestResult(
@@ -172,7 +171,6 @@ class ProofyPytestPlugin:
             started_at=self._start_time,
             run_id=self.run_id,
             attributes=attributes,
-            tags=tags,
             parameters=self._get_parameters(item),
             markers=self._get_markers(item),
         )

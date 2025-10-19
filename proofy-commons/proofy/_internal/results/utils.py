@@ -18,10 +18,6 @@ def merge_metadata(result: TestResult) -> dict[str, Any]:
         attributes = clamp_attributes(result.attributes)
         merged.update(attributes)
 
-    if result.tags:
-        tags = clamp_string(json.dumps(result.tags), ATTRIBUTE_VALUE_LIMIT, suffix=" ...")
-        merged.update({PredefinedAttribute.TAGS.value: tags})
-
     if result.parameters:
         parameters = clamp_string(
             json.dumps(result.parameters), ATTRIBUTE_VALUE_LIMIT, suffix=" ..."

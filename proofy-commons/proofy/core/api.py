@@ -17,14 +17,6 @@ def add_attributes(**kwargs: Any) -> None:
     _context_service.add_attributes(**kwargs)
 
 
-def add_tag(tag: str) -> None:
-    _context_service.add_tag(tag)
-
-
-def add_tags(tags: list[str]) -> None:
-    _context_service.add_tags(tags)
-
-
 def set_name(name: str) -> None:
     _context_service.set_name(name)
 
@@ -129,8 +121,6 @@ __all__ = [
     "add_attachment",
     "add_attributes",
     "add_run_attributes",
-    "add_tag",
-    "add_tags",
     "get_current_run_id",
     "get_current_test_id",
     "get_run_attributes",

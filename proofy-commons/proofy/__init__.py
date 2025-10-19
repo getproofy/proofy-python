@@ -8,8 +8,6 @@ from .core.api import (
     add_attributes,
     add_data,
     add_run_attributes,
-    add_tag,
-    add_tags,
     get_current_run_id,
     get_current_test_id,
     get_run_attributes,
@@ -27,7 +25,6 @@ from .core.decorators import (
     description,
     name,
     severity,
-    tags,
     title,
 )
 from .core.models import Severity
@@ -48,8 +45,6 @@ __all__ = [
     "add_data",
     "add_attributes",
     "add_run_attributes",
-    "add_tag",
-    "add_tags",
     "get_current_run_id",
     "get_current_test_id",
     "get_run_attributes",
@@ -63,7 +58,6 @@ __all__ = [
     "title",
     "description",
     "severity",
-    "tags",
     "attributes",
     "ArtifactType",
     "Severity",

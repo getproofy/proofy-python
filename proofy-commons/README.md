@@ -22,7 +22,7 @@ These are the only supported, stable entry points:
 from proofy import (
     # Metadata
     set_name, set_description, set_severity,
-    add_tag, add_tags, add_attributes,
+    add_attributes,
     set_run_name,
 
     # Run-level metadata
@@ -35,7 +35,7 @@ from proofy import (
     get_current_run_id, get_current_test_id,
 
     # Decorators
-    name, title, description, severity, tags, attributes,
+    name, title, description, severity, attributes,
 )
 ```
 
@@ -56,12 +56,11 @@ def test_example():
 #### Decorators
 
 ```python
-from proofy import name, description, severity, tags, attributes
+from proofy import name, description, severity, attributes
 
 @name("User Authentication Test")
 @description("Validates login functionality with various scenarios")
 @severity("critical")
-@tags("auth", "smoke")
 @attributes(component="auth", area="login")
 def test_user_authentication():
     pass
@@ -110,8 +109,6 @@ def set_name(name: str, test_id: Optional[str] = None) -> None
 def set_description(description: str, test_id: Optional[str] = None) -> None
 def set_severity(severity: str, test_id: Optional[str] = None) -> None
 def add_attributes(test_id: Optional[str] = None, **kwargs: Any) -> None
-def add_tag(tag: str, test_id: Optional[str] = None) -> None
-def add_tags(tags: List[str], test_id: Optional[str] = None) -> None
 ```
 
 **Note:** `set_name()` does not work in live mode because the test result is created at the beginning of the test execution and the name cannot be changed dynamically afterwards. Use decorators (`@name`) for setting test names in live mode.
