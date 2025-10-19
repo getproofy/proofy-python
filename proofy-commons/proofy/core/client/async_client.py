@@ -11,7 +11,7 @@ from typing import Any, Literal, cast
 
 import httpx
 
-from ..logging_scopes import httpx_debug_only_here
+from ..._internal.logging_scopes import httpx_debug_logging_scope
 from ..models import ResultStatus, RunStatus
 from .base import (
     ArtifactType,
@@ -171,7 +171,7 @@ class AsyncClient:
         while attempt <= (self.retry_config.max_retries if retry else 0):
             try:
                 # For async, the context manager still applies to the current task via ContextVar
-                with httpx_debug_only_here():
+                with httpx_debug_logging_scope():
                     response = await self._client.request(
                         method=method,
                         url=url,
@@ -442,11 +442,11 @@ class AsyncClient:
             if isinstance(data, Path):
                 with data.open("rb") as f:
                     content = f.read()
-                with httpx_debug_only_here():
+                with httpx_debug_logging_scope():
                     return await upload_client.put(url, content=content, headers=headers or {})
             else:
                 # Bytes
-                with httpx_debug_only_here():
+                with httpx_debug_logging_scope():
                     return await upload_client.put(url, content=data, headers=headers or {})
 
     async def upload_artifact(

@@ -11,7 +11,7 @@ from typing import IO, Any, Literal, cast
 
 import httpx
 
-from ..logging_scopes import httpx_debug_only_here
+from ..._internal.logging_scopes import httpx_debug_logging_scope
 from ..models import ResultStatus, RunStatus
 from .base import (
     ArtifactType,
@@ -172,7 +172,7 @@ class Client:
 
         while attempt <= (self.retry_config.max_retries if retry else 0):
             try:
-                with httpx_debug_only_here():
+                with httpx_debug_logging_scope():
                     response = self._client.request(
                         method=method,
                         url=url,
@@ -442,14 +442,14 @@ class Client:
 
         with httpx.Client(timeout=self.config.timeout) as upload_client:
             if isinstance(data, Path):
-                with data.open("rb") as f, httpx_debug_only_here():
+                with data.open("rb") as f, httpx_debug_logging_scope():
                     return upload_client.put(url, content=f, headers=headers or {})
             elif isinstance(data, bytes):
-                with httpx_debug_only_here():
+                with httpx_debug_logging_scope():
                     return upload_client.put(url, content=data, headers=headers or {})
             else:
                 # File-like object
-                with httpx_debug_only_here():
+                with httpx_debug_logging_scope():
                     return upload_client.put(url, content=data, headers=headers or {})
 
     def upload_artifact(
