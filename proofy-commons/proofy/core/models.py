@@ -72,6 +72,7 @@ class TestResult:
     name: str  # Display name
     path: str  # Main proofy identifier
     test_path: str  # Test file path
+    test_identifier: str  # Unique test identifier (SHA256-based)
 
     run_id: int | None = None  # Run ID
     result_id: int | None = None  # Server-generated ID for live mode and attachments

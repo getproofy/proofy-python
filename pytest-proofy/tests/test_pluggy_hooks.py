@@ -69,6 +69,7 @@ def test_test_start_and_finish_hooks_are_callable() -> None:
         name="test_name",
         path="node::id",
         test_path="tests/test_sample.py",
+        test_identifier="abc123456789",
         status=ResultStatus.PASSED,
     )
     pm.hook.proofy_test_finish(test_result=tr)

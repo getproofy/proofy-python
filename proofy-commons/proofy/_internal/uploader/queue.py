@@ -47,6 +47,7 @@ class CreateResultJob:
     run_id: int
     name: str
     path: str
+    test_identifier: str
     priority: int = 0
     status: int | None = None
     started_at: str | None = None

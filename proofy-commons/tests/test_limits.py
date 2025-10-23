@@ -7,6 +7,7 @@ from proofy._internal.results.limits import (
     ATTRIBUTE_KEY_LIMIT,
     ATTRIBUTE_VALUE_LIMIT,
     NAME_LIMIT,
+    TEST_IDENTIFIER_LIMIT,
     clamp_attributes,
     clamp_string,
 )
@@ -65,3 +66,20 @@ def test_clamp_string_with_suffix():
     result = clamp_string(value, 20, suffix="...")
 
     assert result == value[:17] + "..."
+
+
+def test_test_identifier_limit_constant():
+    """Test that TEST_IDENTIFIER_LIMIT is set correctly."""
+    # Should be 512 characters
+    assert TEST_IDENTIFIER_LIMIT == 512
+
+
+def test_clamp_string_with_test_identifier():
+    """Test clamping of test_identifier to TEST_IDENTIFIER_LIMIT."""
+    # Create a test_identifier that exceeds the limit
+    long_identifier = "a" * (TEST_IDENTIFIER_LIMIT + 100)
+
+    clamped = clamp_string(long_identifier, TEST_IDENTIFIER_LIMIT, context="test_identifier")
+
+    assert clamped == long_identifier[:TEST_IDENTIFIER_LIMIT]
+    assert len(clamped) == TEST_IDENTIFIER_LIMIT

@@ -21,7 +21,9 @@ def _fresh_service(monkeypatch):
 
 
 def make_result(id_: str = "t1") -> TestResult:
-    return TestResult(id=id_, name="name", path="path", test_path="/tmp/test.py")
+    return TestResult(
+        id=id_, name="name", path="path", test_path="/tmp/test.py", test_identifier="abc123456789"
+    )
 
 
 def test_metadata_conveniences_and_getters(_fresh_service: ContextService):

@@ -19,7 +19,9 @@ def reset_pm():
 
 
 def make_result(id: str = "t1") -> TestResult:
-    return TestResult(id=id, name="name", path="path", test_path="/tmp/test.py")
+    return TestResult(
+        id=id, name="name", path="path", test_path="/tmp/test.py", test_identifier="abc123456789"
+    )
 
 
 def test_session_and_test_lifecycle_and_hooks(monkeypatch):

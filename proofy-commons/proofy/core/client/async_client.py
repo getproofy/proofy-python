@@ -310,6 +310,7 @@ class AsyncClient:
         *,
         name: str,
         path: str,
+        test_identifier: str,
         status: ResultStatus | int | None = None,
         started_at: str | None = None,
         ended_at: str | None = None,
@@ -321,6 +322,7 @@ class AsyncClient:
         data: dict[str, Any] = {
             "name": name,
             "path": path,
+            "test_identifier": test_identifier,
         }
         if status is not None:
             data["status"] = status
