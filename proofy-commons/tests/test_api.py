@@ -5,6 +5,7 @@ from pathlib import Path
 
 import proofy as api
 import pytest
+from proofy._internal.constants import PredefinedAttribute
 from proofy._internal.context.backend import ThreadLocalBackend
 from proofy._internal.context.service import ContextService
 from proofy.core.models import Severity, TestResult
@@ -21,7 +22,9 @@ def _fresh_service(monkeypatch):
 
 
 def make_result(id_: str = "t1") -> TestResult:
-    return TestResult(id=id_, name="name", path="path", test_path="/tmp/test.py")
+    return TestResult(
+        id=id_, name="name", path="path", test_path="/tmp/test.py", test_identifier="abc123456789"
+    )
 
 
 def test_metadata_conveniences_and_getters(_fresh_service: ContextService):
@@ -36,8 +39,8 @@ def test_metadata_conveniences_and_getters(_fresh_service: ContextService):
     api.add_attributes(a=1)
     assert tr.name == "n1"
     assert tr.attributes["a"] == 1
-    assert tr.attributes["__proofy_description"] == "desc"
-    assert tr.attributes["__proofy_severity"] == "critical"
+    assert tr.attributes[PredefinedAttribute.DESCRIPTION.value] == "desc"
+    assert tr.attributes[PredefinedAttribute.SEVERITY.value] == "critical"
     assert api.get_current_test_id() == "id-1"
 
     # run getters

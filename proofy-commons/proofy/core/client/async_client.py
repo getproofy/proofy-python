@@ -11,7 +11,7 @@ from typing import Any, Literal, cast
 
 import httpx
 
-from ..._internal.logging_scopes import httpx_debug_logging_scope
+from ..._internal.logging_scopes import _is_proofy_debug_enabled, httpx_debug_logging_scope
 from ..models import ResultStatus, RunStatus
 from .base import (
     ArtifactType,
@@ -167,11 +167,13 @@ class AsyncClient:
 
         attempt = 0
         last_exception: Exception | None = None
+        debug_enabled = _is_proofy_debug_enabled()
 
         while attempt <= (self.retry_config.max_retries if retry else 0):
             try:
                 # For async, the context manager still applies to the current task via ContextVar
                 with httpx_debug_logging_scope():
+                    start_time = asyncio.get_event_loop().time()
                     response = await self._client.request(
                         method=method,
                         url=url,
@@ -179,6 +181,13 @@ class AsyncClient:
                         content=content,
                         headers=merged_headers,
                     )
+                    elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+
+                    # Log response time if debug is enabled
+                    if debug_enabled:
+                        logger.debug(
+                            f"HTTP {method} {path} -> {response.status_code} ({elapsed_ms:.2f}ms)"
+                        )
 
                 # Check if we should retry based on status code
                 if (
@@ -310,6 +319,7 @@ class AsyncClient:
         *,
         name: str,
         path: str,
+        test_identifier: str,
         status: ResultStatus | int | None = None,
         started_at: str | None = None,
         ended_at: str | None = None,
@@ -321,6 +331,7 @@ class AsyncClient:
         data: dict[str, Any] = {
             "name": name,
             "path": path,
+            "test_identifier": test_identifier,
         }
         if status is not None:
             data["status"] = status

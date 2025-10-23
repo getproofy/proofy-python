@@ -287,6 +287,7 @@ class UploaderWorker:
                 run_id=job.run_id,
                 name=job.name,
                 path=job.path,
+                test_identifier=job.test_identifier,
                 status=job.status,
                 started_at=job.started_at,
                 ended_at=job.ended_at,

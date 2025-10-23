@@ -129,7 +129,9 @@ def test_result_create_and_update():
         return_value=httpx.Response(201, json={"id": 77})
     )
 
-    created = client.create_result(10, name="t", path="p", status=ResultStatus.PASSED)
+    created = client.create_result(
+        10, name="t", path="p", test_identifier="abc123", status=ResultStatus.PASSED
+    )
     assert created["id"] == 77
 
     request = create_route.calls.last.request

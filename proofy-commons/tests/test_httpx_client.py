@@ -71,6 +71,7 @@ class TestSyncClient:
             run_id=123,
             name="test_example",
             path="tests/test_example.py::test_example",
+            test_identifier="abc123def456",
             status=ResultStatus.PASSED,
         )
 
@@ -189,6 +190,7 @@ class TestAsyncClient:
             run_id=123,
             name="test_example",
             path="tests/test_example.py::test_example",
+            test_identifier="abc123def456",
             status=ResultStatus.PASSED,
         )
 

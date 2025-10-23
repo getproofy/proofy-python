@@ -11,7 +11,7 @@ from typing import IO, Any, Literal, cast
 
 import httpx
 
-from ..._internal.logging_scopes import httpx_debug_logging_scope
+from ..._internal.logging_scopes import _is_proofy_debug_enabled, httpx_debug_logging_scope
 from ..models import ResultStatus, RunStatus
 from .base import (
     ArtifactType,
@@ -169,10 +169,12 @@ class Client:
 
         attempt = 0
         last_exception: Exception | None = None
+        debug_enabled = _is_proofy_debug_enabled()
 
         while attempt <= (self.retry_config.max_retries if retry else 0):
             try:
                 with httpx_debug_logging_scope():
+                    start_time = time.time()
                     response = self._client.request(
                         method=method,
                         url=url,
@@ -180,6 +182,13 @@ class Client:
                         content=content,
                         headers=merged_headers,
                     )
+                    elapsed_ms = (time.time() - start_time) * 1000
+
+                    # Log response time if debug is enabled
+                    if debug_enabled:
+                        logger.debug(
+                            f"HTTP {method} {path} -> {response.status_code} ({elapsed_ms:.2f}ms)"
+                        )
 
                 # Check if we should retry based on status code
                 if (
@@ -312,6 +321,7 @@ class Client:
         *,
         name: str,
         path: str,
+        test_identifier: str,
         status: ResultStatus | int | None = None,
         started_at: str | None = None,
         ended_at: str | None = None,
@@ -323,6 +333,7 @@ class Client:
         data: dict[str, Any] = {
             "name": name,
             "path": path,
+            "test_identifier": test_identifier,
         }
         if status is not None:
             data["status"] = status

@@ -18,6 +18,7 @@ from proofy._internal.results import ResultsHandler
 
 # Import from proofy-commons
 from proofy.core.models import ReportingStatus, ResultStatus, RunStatus, TestResult
+from proofy.core.utils import generate_test_identifier
 from pytest import CallInfo
 
 from .config import (
@@ -140,6 +141,14 @@ class ProofyPytestPlugin:
         """
         return getattr(getattr(item, "callspec", None), "params", {}) or {}
 
+    def _get_test_identifier(self, item: pytest.Item) -> str:
+        """Generate a unique test identifier.
+
+        Converts pytest's nodeid format (e.g., "tests/test_file.py::TestClass::test_method")
+        to a framework-agnostic 16-character identifier using SHA256 hashing.
+        """
+        return generate_test_identifier(item.nodeid)
+
     @pytest.hookimpl(tryfirst=True)
     def pytest_sessionstart(self, session: pytest.Session) -> None:
         """Called at the start of test session."""
@@ -167,6 +176,7 @@ class ProofyPytestPlugin:
             name=display_name or self._get_test_name(item),
             path=self._get_path(item),
             test_path=self._get_test_path(item).as_posix(),
+            test_identifier=self._get_test_identifier(item),
             status=ResultStatus.IN_PROGRESS,
             started_at=self._start_time,
             run_id=self.run_id,

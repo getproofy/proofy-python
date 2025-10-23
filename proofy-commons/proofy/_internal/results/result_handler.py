@@ -30,6 +30,7 @@ from .limits import (
     MESSAGE_LIMIT,
     NAME_LIMIT,
     PATH_LIMIT,
+    TEST_IDENTIFIER_LIMIT,
     clamp_attributes,
     clamp_string,
 )
@@ -313,6 +314,12 @@ class ResultsHandler:
             logger.error("Cannot send test result without run_id")
             return None
         try:
+            # Validate test_identifier length
+            if len(result.test_identifier) > TEST_IDENTIFIER_LIMIT:
+                raise ValueError(
+                    f"test_identifier exceeds limit of {TEST_IDENTIFIER_LIMIT} characters. "
+                    f"Got {len(result.test_identifier)} characters."
+                )
             # Convert datetime to RFC3339 string
             started_at_str = (
                 format_datetime_rfc3339(result.started_at) if result.started_at else None
@@ -321,6 +328,7 @@ class ResultsHandler:
             name = clamp_string(result.name, NAME_LIMIT, context="result.name") or result.name
             path = clamp_string(result.path, PATH_LIMIT, context="result.path") or result.path
             message = clamp_string(result.message, MESSAGE_LIMIT, context="result.message")
+            test_identifier = result.test_identifier
 
             response = self.client.create_result(
                 result.run_id,
@@ -332,6 +340,7 @@ class ResultsHandler:
                 duration_ms=result.effective_duration_ms,
                 message=message,
                 attributes=merge_metadata(result),
+                test_identifier=test_identifier,
             )
             # Extract the ID from the response dictionary
             result_id = response.get("id")

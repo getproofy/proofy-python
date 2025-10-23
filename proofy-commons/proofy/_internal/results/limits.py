@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 PATH_LIMIT = 1024
+TEST_IDENTIFIER_LIMIT = 512
 NAME_LIMIT = 300
 ATTRIBUTE_KEY_LIMIT = 65
 ATTRIBUTE_VALUE_LIMIT = 256
