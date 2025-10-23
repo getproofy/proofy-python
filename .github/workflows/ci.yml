@@ -2,6 +2,9 @@ name: CI
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 env:
   FORCE_COLOR: 1
