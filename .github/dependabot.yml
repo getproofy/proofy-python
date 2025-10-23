@@ -1,0 +1,65 @@
+version: 2
+updates:
+  # Enable version updates for Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/proofy-commons"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    reviewers:
+      - "krzysztofmarmol"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore"
+      prefix-scope: "deps"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+
+  - package-ecosystem: "pip"
+    directory: "/pytest-proofy"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    reviewers:
+      - "krzysztofmarmol"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore"
+      prefix-scope: "deps"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    reviewers:
+      - "krzysztofmarmol"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"

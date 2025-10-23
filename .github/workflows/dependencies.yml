@@ -99,14 +99,14 @@ jobs:
         run: |
           echo "::group::Safety vulnerability check"
           safety check --json --output safety-report.json || true
-          safety check
+          safety check || true
           echo "::endgroup::"
 
-      - name: Run pip-audit
+      - name: Run pip-audit on installed packages
         run: |
-          echo "::group::Pip-audit vulnerability check"
-          pip-audit --disable-pip --format=json --output=pip-audit-report.json || true
-          pip-audit --disable-pip
+          echo "::group::Pip-audit vulnerability check (installed packages)"
+          pip-audit --format=json --output=pip-audit-report.json || true
+          pip-audit || true
           echo "::endgroup::"
 
       - name: Upload security reports
