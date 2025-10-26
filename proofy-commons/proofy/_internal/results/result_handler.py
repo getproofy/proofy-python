@@ -16,7 +16,6 @@ from ...core.models import RunStatus, TestResult
 from ...core.system_info import collect_system_attributes, get_framework_version
 from ...core.utils import now_rfc3339
 from ..artifacts import ArtifactUploader
-from ..artifacts.service import AttachmentService
 from ..constants import PredefinedAttribute
 from ..context import get_context_service
 from ..uploader import UploaderWorker, UploadQueue
@@ -34,8 +33,7 @@ class ResultsHandler:
     Delegates to specialized components:
     - RunManager: run lifecycle (create, update, finalize)
     - Publishers: result publishing strategies (live/lazy/batch)
-    - AttachmentService: attachment preparation
-    - ArtifactUploader: async artifact uploads
+    - ArtifactUploader: async artifact uploads (uses prepare_attachment functions)
     """
 
     def __init__(
@@ -91,26 +89,35 @@ class ResultsHandler:
         self.run_manager: RunManager | None = None
         self.publisher: LivePublisher | LazyPublisher | BatchPublisher | None = None
         self.buffer: ResultBuffer | None = None
-        self.attachment_service = AttachmentService(config)
+
+        # Initialize artifact uploader with queue and config (if available)
+        if self.queue:
+            self.artifacts: ArtifactUploader | None = ArtifactUploader(
+                queue=self.queue,
+                config=config,
+            )
+        else:
+            self.artifacts = None
 
         if self.client:
             # Initialize run manager
             self.run_manager = RunManager(self.client, self.context)
 
             # Initialize result publisher based on mode
+            # Publishers now handle artifact uploads as part of their strategy
             if self.config.mode == "batch":
                 self.buffer = ResultBuffer(config.batch_size)
-                self.publisher = BatchPublisher(self.client, self.context, self.buffer)
+                self.publisher = BatchPublisher(
+                    self.client, self.context, self.buffer, artifact_uploader=self.artifacts
+                )
             elif self.config.mode == "lazy":
-                self.publisher = LazyPublisher(self.client, self.context)
+                self.publisher = LazyPublisher(
+                    self.client, self.context, artifact_uploader=self.artifacts
+                )
             else:  # live mode
-                self.publisher = LivePublisher(self.client, self.context)
-
-        # Initialize artifact uploader with queue (if available)
-        if self.queue:
-            self.artifacts: ArtifactUploader | None = ArtifactUploader(queue=self.queue)
-        else:
-            self.artifacts = None
+                self.publisher = LivePublisher(
+                    self.client, self.context, artifact_uploader=self.artifacts
+                )
 
     def get_result(self, id: str) -> TestResult | None:
         return self.context.get_result(id)
@@ -257,30 +264,14 @@ class ResultsHandler:
         # Finish test in context
         self.context.finish_test(result=result)
 
-        # Delegate to publisher
+        # Delegate to publisher (which handles artifact uploads)
         if self.publisher:
             self.publisher.publish(result)
-
-        # Upload artifacts
-        self._upload_artifacts(result, mode=self.config.mode)
-
-    def _upload_artifacts(self, result: TestResult, *, mode: str) -> None:
-        if not self.artifacts:
-            return
-        try:
-            self.artifacts.upload_traceback(result)
-        except Exception as exc:
-            logger.error(f"Failed to upload traceback in {mode} mode: {exc}")
-        for attachment in result.attachments:
-            try:
-                self.artifacts.upload_attachment(result, attachment)
-            except Exception as exc:
-                logger.error(f"Failed to upload attachment in {mode} mode: {exc}")
 
     def flush_results(self) -> None:
         """Flush any pending results (delegated to Publisher).
 
-        In batch/lazy mode, sends all buffered results.
+        Publishers handle both result sending and artifact uploads.
         In live mode, this is a no-op as results are sent immediately.
         """
         if self.publisher:

@@ -13,12 +13,11 @@ from .attachments_cache import (
     should_cache_for_mode,
 )
 from .models import PreparedAttachment
-from .service import AttachmentService
+from .service import prepare_attachment, prepare_traceback
 from .uploader import ArtifactUploader
 
 __all__ = [
     "ArtifactUploader",
-    "AttachmentService",
     "PreparedAttachment",
     "cache_attachment",
     "cache_attachment_from_bytes",
@@ -27,5 +26,7 @@ __all__ = [
     "get_output_dir",
     "is_cache_enabled",
     "is_cached_path",
+    "prepare_attachment",
+    "prepare_traceback",
     "should_cache_for_mode",
 ]

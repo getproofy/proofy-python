@@ -10,7 +10,7 @@ from ..._internal.config import ProofyConfig
 from ..._internal.hooks import get_plugin_manager
 from ...core.client import ArtifactType
 from ...core.models import Attachment, Severity, TestResult
-from ..artifacts import AttachmentService
+from ..artifacts.service import prepare_attachment
 from ..constants import PredefinedAttribute
 from .backend import ContextBackend, ThreadLocalBackend
 from .models import SessionContext
@@ -140,8 +140,8 @@ class ContextService:
     ) -> None:
         """Attach a file, bytes, or stream to the current test.
 
-        This method uses AttachmentService to prepare the attachment consistently
-        with caching, MIME detection, and hash computation.
+        This method uses prepare_attachment() function to prepare the attachment
+        consistently with caching, MIME detection, and hash computation.
         """
         ctx = self.test_ctx
         if not ctx:
@@ -157,13 +157,12 @@ class ContextService:
             # session.config is dict, create ProofyConfig from it
             config = ProofyConfig(**session.config)
 
-        # Use AttachmentService to prepare the attachment
-        service = AttachmentService(config=config)
-
+        # Use prepare_attachment function to prepare the attachment
         try:
-            prepared = service.prepare_attachment(
+            prepared = prepare_attachment(
                 file=file,
                 name=name,
+                mode=config.mode,
                 mime_type=mime_type,
                 extension=extension,
                 artifact_type=artifact_type,
@@ -191,8 +190,4 @@ class ContextService:
                 )
             )
         except Exception as e:
-            # Log error but don't fail the test
-            import logging
-
-            logger = logging.getLogger("Proofy")
-            logger.error(f"Failed to attach {name}: {e}")
+            raise RuntimeError(f"Failed to attach {name}: {e}") from e

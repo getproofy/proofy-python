@@ -7,15 +7,15 @@ using asynchronous queue-based uploads.
 from __future__ import annotations
 
 import logging
-import mimetypes
 from pathlib import Path
 from typing import Any
 
 from ...core.client import ArtifactType
-from ...core.client.base import ClientHelpers
 from ...core.models import Attachment, TestResult
+from ..config import ProofyConfig
 from ..uploader import UploadArtifactJob, UploadQueue
 from .attachments_cache import is_cached_path
+from .service import prepare_traceback
 
 logger = logging.getLogger("ProofyArtifactUploader")
 
@@ -27,20 +27,22 @@ class ArtifactUploader:
     background processing without blocking test execution.
     """
 
-    def __init__(self, queue: UploadQueue) -> None:
+    def __init__(self, queue: UploadQueue, config: ProofyConfig) -> None:
         """Initialize artifact uploader.
 
         Args:
             queue: Upload queue for async uploads
+            config: Proofy configuration for mode-dependent behavior
         """
         self.queue = queue
+        self.config = config
 
     def upload_attachment(
         self, result: TestResult, attachment: Attachment | dict[str, Any]
     ) -> None:
         """Upload a single attachment for a given result.
 
-        Best-effort: computes MIME when missing and removes cached files on success.
+        Attachment should already be prepared (via prepare_attachment function).
         """
         try:
             # Accept both dataclass Attachment and dict payloads
@@ -63,9 +65,6 @@ class ArtifactUploader:
                 sha256 = attachment.sha256
                 artifact_type_val = attachment.artifact_type
 
-            guessed, _ = mimetypes.guess_type(path)
-            effective_mime = mime_type or guessed or "application/octet-stream"
-
             if not result.run_id or not result.result_id:
                 raise RuntimeError("Cannot upload attachment without run_id and result_id.")
 
@@ -77,23 +76,15 @@ class ArtifactUploader:
                 else ArtifactType.ATTACHMENT
             )
 
-            # Compute size/hash if not provided
-            path_obj = Path(path)
-            if size_bytes is None or sha256 is None:
-                if path_obj.exists():
-                    size_bytes, sha256 = ClientHelpers.compute_file_hash(path_obj)
-                else:
-                    logger.warning(f"Attachment file not found: {path}")
-                    return
-
-            # Queue-based upload
+            # Queue-based upload - use data directly from attachment
+            # (all preparation already done by prepare_attachment() in ContextService.attach())
             self._enqueue_upload(
                 result=result,
                 file=path,
                 filename=name,
-                mime_type=effective_mime,
-                size_bytes=size_bytes,
-                hash_sha256=sha256,
+                mime_type=mime_type or "application/octet-stream",
+                size_bytes=size_bytes or 0,
+                hash_sha256=sha256 or "",
                 type=final_type,
                 attachment=attachment if not isinstance(attachment, dict) else None,
             )
@@ -102,31 +93,32 @@ class ArtifactUploader:
             raise
 
     def upload_traceback(self, result: TestResult) -> None:
-        """Upload a textual traceback for a failed test, if any."""
+        """Upload a textual traceback for a failed test, if any.
+
+        Uses prepare_traceback() function to prepare the traceback consistently.
+        """
         try:
             if not result.traceback:
                 return
             if not result.run_id or not result.result_id:
                 return
 
+            # Use prepare_traceback function to prepare traceback
             base_name = result.name or result.path or result.id or "test"
-            safe_name = "".join(
-                c if (c.isalnum() or c in ("-", "_")) else "_" for c in str(base_name)
+            prepared = prepare_traceback(
+                text=result.traceback,
+                base_name=base_name,
             )
-            filename = f"{safe_name[:64]}-traceback.txt"
-
-            data_bytes = result.traceback.encode("utf-8", errors="replace")
-            size_bytes, sha256 = ClientHelpers.compute_bytes_hash(data_bytes)
 
             # Queue-based upload
             self._enqueue_upload(
                 result=result,
-                file=data_bytes,
-                filename=filename,
-                mime_type="text/plain",
-                size_bytes=size_bytes,
-                hash_sha256=sha256,
-                type=ArtifactType.TRACE,
+                file=prepared.path,
+                filename=prepared.filename,
+                mime_type=prepared.mime_type,
+                size_bytes=prepared.size_bytes,
+                hash_sha256=prepared.sha256,
+                type=prepared.artifact_type,
             )
         except Exception:
             raise

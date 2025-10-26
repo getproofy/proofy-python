@@ -1,4 +1,4 @@
-"""Tests for AttachmentService (Phase 2)."""
+"""Tests for attachment preparation functions (Phase 2)."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ import io
 from pathlib import Path
 
 import pytest
-from proofy._internal.artifacts import AttachmentService, PreparedAttachment
+from proofy._internal.artifacts import PreparedAttachment, prepare_attachment, prepare_traceback
 from proofy._internal.config import ProofyConfig
 from proofy.core.client import ArtifactType
 
 
-class TestAttachmentService:
-    """Test AttachmentService attachment preparation."""
+class TestAttachmentPreparation:
+    """Test attachment preparation functions."""
 
     @pytest.fixture
     def config_live(self) -> ProofyConfig:
@@ -35,11 +35,10 @@ class TestAttachmentService:
         self, config_batch: ProofyConfig, temp_file: Path
     ) -> None:
         """Test preparing attachment from file path."""
-        service = AttachmentService(config=config_batch)
-
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=temp_file,
             name="test.txt",
+            mode=config_batch.mode,
             mime_type="text/plain",
         )
 
@@ -52,12 +51,12 @@ class TestAttachmentService:
 
     def test_prepare_attachment_from_bytes(self, config_batch: ProofyConfig) -> None:
         """Test preparing attachment from bytes."""
-        service = AttachmentService(config=config_batch)
         content = b"Binary content here"
 
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=content,
             name="data.bin",
+            mode=config_batch.mode,
             extension="bin",
         )
 
@@ -68,13 +67,13 @@ class TestAttachmentService:
 
     def test_prepare_attachment_from_stream(self, config_batch: ProofyConfig) -> None:
         """Test preparing attachment from stream."""
-        service = AttachmentService(config=config_batch)
         content = b"Stream content"
         stream = io.BytesIO(content)
 
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=stream,
             name="stream.dat",
+            mode=config_batch.mode,
             mime_type="application/octet-stream",
         )
 
@@ -86,15 +85,14 @@ class TestAttachmentService:
         self, config_batch: ProofyConfig, tmp_path: Path
     ) -> None:
         """Test automatic MIME type detection."""
-        service = AttachmentService(config=config_batch)
-
         # Create PNG file (just header, not real PNG)
         png_file = tmp_path / "image.png"
         png_file.write_bytes(b"\x89PNG\r\n\x1a\n")
 
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=png_file,
             name="test.png",
+            mode=config_batch.mode,
         )
 
         # Should auto-detect as image/png
@@ -102,11 +100,10 @@ class TestAttachmentService:
 
     def test_prepare_attachment_with_extension(self, config_batch: ProofyConfig) -> None:
         """Test MIME detection using extension parameter."""
-        service = AttachmentService(config=config_batch)
-
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=b"JSON content",
             name="config.json",
+            mode=config_batch.mode,
             extension="json",
         )
 
@@ -115,21 +112,19 @@ class TestAttachmentService:
 
     def test_prepare_attachment_missing_file(self, config_batch: ProofyConfig) -> None:
         """Test that preparing non-existent file raises error."""
-        service = AttachmentService(config=config_batch)
-
         with pytest.raises(ValueError, match="File not found"):
-            service.prepare_attachment(
+            prepare_attachment(
                 file="/nonexistent/path/to/file.txt",
                 name="missing.txt",
+                mode=config_batch.mode,
             )
 
     def test_prepare_attachment_custom_artifact_type(self, config_batch: ProofyConfig) -> None:
         """Test preparing attachment with custom artifact type."""
-        service = AttachmentService(config=config_batch)
-
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=b"Screenshot data",
             name="screenshot.png",
+            mode=config_batch.mode,
             artifact_type=ArtifactType.SCREENSHOT,
         )
 
@@ -137,15 +132,13 @@ class TestAttachmentService:
 
     def test_prepare_traceback(self, config_batch: ProofyConfig) -> None:
         """Test preparing traceback as attachment."""
-        service = AttachmentService(config=config_batch)
-
         traceback_text = """Traceback (most recent call last):
   File "test.py", line 10, in test_function
     raise ValueError("Test error")
 ValueError: Test error
 """
 
-        prepared = service.prepare_traceback(
+        prepared = prepare_traceback(
             text=traceback_text,
             base_name="test_function",
         )
@@ -159,9 +152,7 @@ ValueError: Test error
 
     def test_prepare_traceback_sanitize_name(self, config_batch: ProofyConfig) -> None:
         """Test that traceback filename is properly sanitized."""
-        service = AttachmentService(config=config_batch)
-
-        prepared = service.prepare_traceback(
+        prepared = prepare_traceback(
             text="Error!",
             base_name="test/with/slashes and spaces",
         )
@@ -173,21 +164,18 @@ ValueError: Test error
 
     def test_prepare_traceback_long_name_truncation(self, config_batch: ProofyConfig) -> None:
         """Test that very long base names are truncated."""
-        service = AttachmentService(config=config_batch)
-
         long_name = "a" * 100
-        prepared = service.prepare_traceback(text="Error", base_name=long_name)
+        prepared = prepare_traceback(text="Error", base_name=long_name)
 
         # Filename should be truncated to 64 chars + suffix
         assert len(prepared.filename) <= 64 + len("-traceback.txt")
 
     def test_caching_behavior_batch_mode(self, config_batch: ProofyConfig, temp_file: Path) -> None:
         """Test that batch mode caches files."""
-        service = AttachmentService(config=config_batch)
-
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=temp_file,
             name="cached.txt",
+            mode=config_batch.mode,
         )
 
         # In batch mode, file should be cached
@@ -198,11 +186,10 @@ ValueError: Test error
 
     def test_mime_type_fallback(self, config_batch: ProofyConfig) -> None:
         """Test fallback to application/octet-stream when MIME unknown."""
-        service = AttachmentService(config=config_batch)
-
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=b"Unknown content",
             name="unknown",
+            mode=config_batch.mode,
             # No extension, no mime_type provided
         )
 
@@ -211,12 +198,11 @@ ValueError: Test error
 
     def test_bytearray_input(self, config_batch: ProofyConfig) -> None:
         """Test that bytearray input is properly handled."""
-        service = AttachmentService(config=config_batch)
-
         content = bytearray(b"Bytearray content")
-        prepared = service.prepare_attachment(
+        prepared = prepare_attachment(
             file=content,
             name="bytearray.bin",
+            mode=config_batch.mode,
         )
 
         assert prepared.size_bytes == len(content)

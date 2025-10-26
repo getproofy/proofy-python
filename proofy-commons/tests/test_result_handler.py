@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-from proofy._internal.artifacts import ArtifactUploader
 from proofy._internal.config import ProofyConfig
 from proofy._internal.results import (
     BatchPublisher,
@@ -19,7 +18,6 @@ from proofy._internal.results import (
 from proofy._internal.uploader import UploaderWorker
 from proofy.core.client import Client
 from proofy.core.models import (
-    Attachment,
     ResultStatus,
     RunStatus,
     TestResult,
@@ -54,7 +52,6 @@ class TestResultsHandlerInit:
         assert handler.run_manager is not None
         assert handler.publisher is not None
         assert isinstance(handler.publisher, LivePublisher)
-        assert handler.attachment_service is not None
         assert handler.artifacts is not None
 
     def test_init_with_batch_mode(self, tmp_path: Path) -> None:
@@ -564,54 +561,8 @@ class TestResultsHandlerTestLifecycle:
 
         handler.publisher.publish.assert_called_once_with(test_result)
 
-    def test_on_test_finished_uploads_artifacts(
-        self, handler: ResultsHandler, test_result: TestResult
-    ) -> None:
-        """Test on_test_finished uploads artifacts."""
-        handler.start_session()
-        handler.context.start_test(test_result)
-        handler.artifacts = Mock(spec=ArtifactUploader)
-
-        # Add traceback to result
-        test_result.traceback = "Error traceback"
-
-        handler.on_test_finished(test_result)
-
-        handler.artifacts.upload_traceback.assert_called_once_with(test_result)
-
-    def test_on_test_finished_uploads_attachments(
-        self, handler: ResultsHandler, test_result: TestResult, tmp_path: Path
-    ) -> None:
-        """Test on_test_finished uploads attachments."""
-        handler.start_session()
-        handler.context.start_test(test_result)
-        handler.artifacts = Mock(spec=ArtifactUploader)
-
-        # Add attachments
-        attachment = Attachment(
-            name="screenshot.png",
-            path=str(tmp_path / "screenshot.png"),
-            mime_type="image/png",
-        )
-        test_result.attachments.append(attachment)
-
-        handler.on_test_finished(test_result)
-
-        handler.artifacts.upload_attachment.assert_called_once_with(test_result, attachment)
-
-    def test_on_test_finished_handles_upload_errors(
-        self, handler: ResultsHandler, test_result: TestResult
-    ) -> None:
-        """Test on_test_finished handles upload errors gracefully."""
-        handler.start_session()
-        handler.context.start_test(test_result)
-        handler.artifacts = Mock(spec=ArtifactUploader)
-        handler.artifacts.upload_traceback.side_effect = Exception("Upload failed")
-
-        test_result.traceback = "Error traceback"
-
-        # Should not raise
-        handler.on_test_finished(test_result)
+    # NOTE: Artifact upload tests moved to test_results_components.py
+    # because Publishers are now responsible for artifact uploads, not ResultsHandler
 
     def test_get_result(self, handler: ResultsHandler, test_result: TestResult) -> None:
         """Test get_result delegates to context."""

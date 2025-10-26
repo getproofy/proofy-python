@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 from ...core.client import Client
 from ...core.models import ReportingStatus, TestResult
@@ -23,6 +24,9 @@ from .limits import (
 from .result_buffer import ResultBuffer
 from .utils import merge_metadata
 
+if TYPE_CHECKING:
+    from ..artifacts.uploader import ArtifactUploader
+
 logger = logging.getLogger("ProofyPublisher")
 
 
@@ -33,15 +37,22 @@ class BaseResultPublisher(ABC):
     to the Proofy API based on the configured mode.
     """
 
-    def __init__(self, client: Client, context: ContextService) -> None:
+    def __init__(
+        self,
+        client: Client,
+        context: ContextService,
+        artifact_uploader: ArtifactUploader | None = None,
+    ) -> None:
         """Initialize publisher.
 
         Args:
             client: API client for result operations
             context: Context service for accessing test state
+            artifact_uploader: Optional artifact uploader for attachments
         """
         self.client = client
         self.context = context
+        self.artifact_uploader = artifact_uploader
 
     @abstractmethod
     def publish(self, result: TestResult) -> None:
@@ -59,6 +70,32 @@ class BaseResultPublisher(ABC):
         Called at the end of the run to ensure all results are sent.
         """
         raise NotImplementedError
+
+    def _upload_artifacts(self, result: TestResult) -> None:
+        """Upload artifacts for a result (shared logic for all publishers).
+
+        Args:
+            result: Test result with artifacts to upload
+        """
+        if not self.artifact_uploader:
+            return
+
+        # Only upload if result was successfully created on server
+        if result.result_id is None:
+            return
+
+        # Upload traceback
+        try:
+            self.artifact_uploader.upload_traceback(result)
+        except Exception as exc:
+            logger.error(f"Failed to upload traceback: {exc}")
+
+        # Upload attachments
+        for attachment in result.attachments:
+            try:
+                self.artifact_uploader.upload_attachment(result, attachment)
+            except Exception as exc:
+                logger.error(f"Failed to upload attachment: {exc}")
 
     def _send_result(self, result: TestResult) -> int | None:
         """Send a test result to the API (create).
@@ -180,6 +217,8 @@ class LivePublisher(BaseResultPublisher):
             # Update result at finish
             if result.reporting_status == ReportingStatus.INITIALIZED:
                 self._update_result(result)
+                # Upload artifacts after result is finalized
+                self._upload_artifacts(result)
 
     def flush(self) -> None:
         """No-op in live mode: all results sent immediately."""
@@ -202,7 +241,7 @@ class LazyPublisher(BaseResultPublisher):
         pass
 
     def flush(self) -> None:
-        """Send all collected results to the API."""
+        """Send all collected results to the API, then upload artifacts."""
         results = self.context.get_results()
         for result in results.values():
             result_id = self._send_result(result)
@@ -210,6 +249,8 @@ class LazyPublisher(BaseResultPublisher):
                 result.reporting_status = ReportingStatus.FAILED
             else:
                 result.reporting_status = ReportingStatus.FINISHED
+                # Upload artifacts after result is created
+                self._upload_artifacts(result)
 
 
 class BatchPublisher(BaseResultPublisher):
@@ -224,6 +265,7 @@ class BatchPublisher(BaseResultPublisher):
         client: Client,
         context: ContextService,
         buffer: ResultBuffer,
+        artifact_uploader: ArtifactUploader | None = None,
     ) -> None:
         """Initialize batch publisher.
 
@@ -231,8 +273,9 @@ class BatchPublisher(BaseResultPublisher):
             client: API client for result operations
             context: Context service for accessing test state
             buffer: Result buffer for batch accumulation
+            artifact_uploader: Optional artifact uploader for attachments
         """
-        super().__init__(client, context)
+        super().__init__(client, context, artifact_uploader)
         self.buffer = buffer
 
     def publish(self, result: TestResult) -> None:
@@ -246,7 +289,7 @@ class BatchPublisher(BaseResultPublisher):
             self.flush()
 
     def flush(self) -> None:
-        """Send all pending results in the buffer."""
+        """Send all pending results in the buffer, then upload artifacts."""
         if not self.buffer.pending:
             return
 
@@ -261,5 +304,7 @@ class BatchPublisher(BaseResultPublisher):
                 result.reporting_status = ReportingStatus.FAILED
             else:
                 result.reporting_status = ReportingStatus.FINISHED
+                # Upload artifacts after result is created
+                self._upload_artifacts(result)
 
         self.buffer.clear()
