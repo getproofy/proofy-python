@@ -164,4 +164,7 @@ def test_attach_path_no_cache_in_live_mode_when_cache_disabled(tmp_path, monkeyp
     att = tr.attachments[0]
     # When cache disabled in live mode, path should remain original (no cache copy)
     assert att.path == str(src)
-    assert att.size_bytes is None and att.sha256 is None
+    # AttachmentService always computes size/hash for integrity verification
+    assert att.size_bytes == 3  # "abc"
+    assert att.sha256 is not None
+    assert len(att.sha256) == 64  # SHA-256 hex digest

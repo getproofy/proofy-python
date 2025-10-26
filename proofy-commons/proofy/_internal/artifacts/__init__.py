@@ -12,10 +12,14 @@ from .attachments_cache import (
     is_cached_path,
     should_cache_for_mode,
 )
+from .models import PreparedAttachment
+from .service import AttachmentService
 from .uploader import ArtifactUploader
 
 __all__ = [
     "ArtifactUploader",
+    "AttachmentService",
+    "PreparedAttachment",
     "cache_attachment",
     "cache_attachment_from_bytes",
     "cache_attachment_from_stream",

@@ -152,10 +152,7 @@ class ProofyPytestPlugin:
     @pytest.hookimpl(tryfirst=True)
     def pytest_sessionstart(self, session: pytest.Session) -> None:
         """Called at the start of test session."""
-        self.results_handler.start_session(
-            run_id=self.config.run_id,
-            config=self.config,
-        )
+        self.results_handler.start_session(run_id=self.config.run_id)
 
         self.run_id = self.results_handler.start_run()
         self.config.run_id = self.run_id
