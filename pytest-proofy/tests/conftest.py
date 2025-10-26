@@ -68,6 +68,7 @@ class _DummySyncClient:
         *,
         name: str,
         path: str,
+        test_identifier: str,
         status: Any | None = None,
         started_at: str | None = None,
         ended_at: str | None = None,
@@ -81,6 +82,7 @@ class _DummySyncClient:
             "run_id": run_id,
             "name": name,
             "path": path,
+            "test_identifier": test_identifier,
             "status": status,
             "started_at": started_at,
             "ended_at": ended_at,
@@ -153,6 +155,7 @@ class _DummyAsyncClient:
         *,
         name: str,
         path: str,
+        test_identifier: str,
         status: Any | None = None,
         started_at: str | None = None,
         ended_at: str | None = None,
@@ -165,6 +168,7 @@ class _DummyAsyncClient:
             "run_id": run_id,
             "name": name,
             "path": path,
+            "test_identifier": test_identifier,
             "status": status,
             "started_at": started_at,
             "ended_at": ended_at,
@@ -211,6 +215,16 @@ class _DummyAsyncClient:
 
     async def close(self) -> None:  # pragma: no cover - nothing to clean up
         return None
+
+
+@pytest.fixture(autouse=True)
+def _reset_plugin_manager() -> None:
+    """Reset plugin manager between tests to avoid registration conflicts."""
+    from proofy._internal.hooks.manager import reset_plugin_manager
+
+    reset_plugin_manager()
+    yield
+    reset_plugin_manager()
 
 
 @pytest.fixture(autouse=True)

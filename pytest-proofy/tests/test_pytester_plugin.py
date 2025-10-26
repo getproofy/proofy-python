@@ -307,3 +307,29 @@ def test_run_attributes_via_ini(pytester: pytest.Pytester) -> None:
     assert attributes.get("alfa") == "1"
     assert attributes.get("beta") == "22"
     assert attributes.get("delta") == "44"
+
+
+def test_run_attributest_via_environment_variable(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that run attributes are properly parsed from environment variable."""
+    pytester.makepyfile(
+        test_attrs="""
+        def test_simple():
+            assert True
+        """
+    )
+    monkeypatch.setenv("PROOFY_RUN_ATTRIBUTES", "alfa=1,beta=22,delta=44")
+    monkeypatch.setenv("PROOFY_TOKEN", "test-token")
+    monkeypatch.setenv("PROOFY_PROJECT_ID", "12345")
+    monkeypatch.setenv("PROOFY_API_BASE", "https://example.invalid")
+    monkeypatch.setenv("PROOFY", "true")
+    monkeypatch.setenv("PROOFY_BACKUP", "true")
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=1)
+
+    data = _load_results(pytester.path)
+    attributes = data.get("run_attributes", {})
+    assert attributes.get("alfa") == "1"
+    assert attributes.get("beta") == "22"
+    assert attributes.get("delta") == "44"

@@ -24,7 +24,7 @@ class ProofyConfig:
     project_id: int | None = None
 
     # Batch settings
-    batch_size: int = 10
+    batch_size: int = 100
 
     # Output settings
     output_dir: str = "proofy-artifacts"

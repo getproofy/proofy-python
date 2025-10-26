@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import uuid
 from pathlib import Path
 from typing import IO, Any
@@ -11,13 +10,7 @@ from ..._internal.config import ProofyConfig
 from ..._internal.hooks import get_plugin_manager
 from ...core.client import ArtifactType
 from ...core.models import Attachment, Severity, TestResult
-from ..artifacts import (
-    cache_attachment,
-    cache_attachment_from_bytes,
-    cache_attachment_from_stream,
-    is_cached_path,
-    should_cache_for_mode,
-)
+from ..artifacts.service import prepare_attachment
 from ..constants import PredefinedAttribute
 from .backend import ContextBackend, ThreadLocalBackend
 from .models import SessionContext
@@ -145,78 +138,56 @@ class ContextService:
         extension: str | None = None,
         artifact_type: ArtifactType | int = ArtifactType.ATTACHMENT,
     ) -> None:
+        """Attach a file, bytes, or stream to the current test.
+
+        This method uses prepare_attachment() function to prepare the attachment
+        consistently with caching, MIME detection, and hash computation.
+        """
         ctx = self.test_ctx
         if not ctx:
             return
-        # Normalize input: accept path-like or in-memory content
-        path_to_store: Path
-        original_path_string: str
-        mode = os.getenv("PROOFY_MODE", "").lower()
-        do_immediate = mode == "live"
-        cached_size: int | None = None
-        cached_sha: str | None = None
 
-        if isinstance(file, str | Path):
-            # Path-like: prefer zero-copy; in live mode consider immediate upload
-            original_path = Path(file)
-            original_path_string = str(file) if isinstance(file, Path) else file
-            path_to_store = original_path
-            # In live, if we already have run_id/result_id, we could upload immediately (optional)
-            if do_immediate and self.test_ctx and self.test_ctx.run_id and self.test_ctx.result_id:
-                try:
-                    # Best effort mime guess if missing
-                    eff_mime = mime_type
-                    if eff_mime is None and extension:
-                        import mimetypes as _m
-
-                        eff_mime = _m.guess_type(f"f.{extension}")[0]
-                    eff_mime = eff_mime or "application/octet-stream"
-                    # Placeholder for potential immediate upload integration at this layer
-                except Exception:
-                    pass
-        elif isinstance(file, bytes | bytearray):
-            # Bytes: in lazy/batch write directly to cache; in live immediate upload is optional
-            if do_immediate and self.test_ctx and self.test_ctx.run_id and self.test_ctx.result_id:
-                # Avoid writing to disk; upload can occur immediately at test finish
-                # Still record a cache path to keep a consistent structure
-                suffix = f".{extension}" if extension else None
-                path_to_store, cached_size, cached_sha = cache_attachment_from_bytes(
-                    bytes(file), suffix=suffix
-                )
-                original_path_string = "<bytes>"
-            else:
-                suffix = f".{extension}" if extension else None
-                path_to_store, cached_size, cached_sha = cache_attachment_from_bytes(
-                    bytes(file), suffix=suffix
-                )
-                original_path_string = "<bytes>"
+        session = self.session_ctx
+        if not session or not session.config:
+            # Fallback config if session not properly initialized
+            config = ProofyConfig()
+        elif isinstance(session.config, ProofyConfig):
+            config = session.config
         else:
-            # Stream: write directly to cache in a single pass
-            suffix = f".{extension}" if extension else None
-            path_to_store, cached_size, cached_sha = cache_attachment_from_stream(
-                file, suffix=suffix
-            )
-            original_path_string = "<stream>"
-        try:
-            # For path inputs, copy to cache if required and not already cached
-            if (
-                should_cache_for_mode(mode)
-                and isinstance(file, str | Path)
-                and not is_cached_path(path_to_store)
-            ):
-                path_to_store, cached_size, cached_sha = cache_attachment(path_to_store)
-        except Exception:
-            pass
+            # session.config is dict, create ProofyConfig from it
+            config = ProofyConfig(**session.config)
 
-        ctx.attachments.append(
-            Attachment(
+        # Use prepare_attachment function to prepare the attachment
+        try:
+            prepared = prepare_attachment(
+                file=file,
                 name=name,
-                path=str(path_to_store),
-                original_path=original_path_string,
+                mode=config.mode,
                 mime_type=mime_type,
                 extension=extension,
-                size_bytes=cached_size,
-                sha256=cached_sha,
-                artifact_type=int(artifact_type),
+                artifact_type=artifact_type,
             )
-        )
+
+            # Determine original path string for tracking
+            if isinstance(file, str | Path):
+                original_path_string = str(file)
+            elif isinstance(file, bytes | bytearray):
+                original_path_string = "<bytes>"
+            else:
+                original_path_string = "<stream>"
+
+            # Add to test context
+            ctx.attachments.append(
+                Attachment(
+                    name=prepared.filename,
+                    path=str(prepared.path) if isinstance(prepared.path, Path) else "<bytes>",
+                    original_path=original_path_string,
+                    mime_type=prepared.mime_type,
+                    extension=extension,
+                    size_bytes=prepared.size_bytes,
+                    sha256=prepared.sha256,
+                    artifact_type=int(prepared.artifact_type),
+                )
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to attach {name}: {e}") from e

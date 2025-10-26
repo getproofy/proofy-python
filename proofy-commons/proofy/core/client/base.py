@@ -19,6 +19,57 @@ from ..utils import format_datetime_rfc3339
 logger = logging.getLogger("ProofyClient")
 
 
+class RetryConfig:
+    """Configuration for retry logic (shared between sync and async clients)."""
+
+    def __init__(
+        self,
+        max_retries: int = 3,
+        base_delay: float = 1.0,
+        max_delay: float = 60.0,
+        exponential_base: float = 2.0,
+        jitter: bool = True,
+    ):
+        self.max_retries = max_retries
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+        self.exponential_base = exponential_base
+        self.jitter = jitter
+
+    def get_delay(self, attempt: int) -> float:
+        """Calculate delay for given attempt number using exponential backoff with full jitter."""
+        import random
+
+        delay = min(self.base_delay * (self.exponential_base**attempt), self.max_delay)
+        if self.jitter:
+            delay = random.uniform(0, delay)
+        return delay
+
+
+def should_retry(response: httpx.Response | None, exception: Exception | None) -> bool:
+    """Determine if a request should be retried based on response or exception."""
+    if exception:
+        # Retry on timeout and connection errors
+        return isinstance(exception, httpx.TimeoutException | httpx.ConnectError | httpx.ReadError)
+
+    # Retry on 429 (rate limit) and 5xx server errors
+    return bool(response and (response.status_code == 429 or 500 <= response.status_code < 600))
+
+
+def get_retry_after(response: httpx.Response) -> float | None:
+    """Extract Retry-After header value in seconds."""
+    retry_after = response.headers.get("Retry-After")
+    if not retry_after:
+        return None
+
+    try:
+        # Try parsing as seconds
+        return float(retry_after)
+    except ValueError:
+        # Could be HTTP date format, skip for simplicity
+        return None
+
+
 class ArtifactType(int, Enum):
     """Artifact type values per API.md."""
 
@@ -211,4 +262,7 @@ __all__ = [
     "ProofyConnectionError",
     "ProofyHTTPError",
     "ProofyTimeoutError",
+    "RetryConfig",
+    "should_retry",
+    "get_retry_after",
 ]
