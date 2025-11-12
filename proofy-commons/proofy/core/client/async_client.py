@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import mimetypes
-import random
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -20,56 +19,12 @@ from .base import (
     ProofyConnectionError,
     ProofyHTTPError,
     ProofyTimeoutError,
+    RetryConfig,
+    get_retry_after,
+    should_retry,
 )
 
 logger = logging.getLogger("ProofyClient.Async")
-
-
-class AsyncRetryConfig:
-    """Configuration for async retry logic."""
-
-    def __init__(
-        self,
-        max_retries: int = 3,
-        base_delay: float = 1.0,
-        max_delay: float = 60.0,
-        exponential_base: float = 2.0,
-        jitter: bool = True,
-    ):
-        self.max_retries = max_retries
-        self.base_delay = base_delay
-        self.max_delay = max_delay
-        self.exponential_base = exponential_base
-        self.jitter = jitter
-
-    def get_delay(self, attempt: int) -> float:
-        """Calculate delay for given attempt number using exponential backoff with full jitter."""
-        delay = min(self.base_delay * (self.exponential_base**attempt), self.max_delay)
-        if self.jitter:
-            delay = random.uniform(0, delay)
-        return delay
-
-
-def should_retry_async(response: httpx.Response | None, exception: Exception | None) -> bool:
-    """Determine if a request should be retried based on response or exception."""
-    if exception:
-        # Retry on timeout and connection errors
-        return isinstance(exception, httpx.TimeoutException | httpx.ConnectError | httpx.ReadError)
-
-    # Retry on 429 (rate limit) and 5xx server errors
-    return bool(response and (response.status_code == 429 or 500 <= response.status_code < 600))
-
-
-def get_retry_after_async(response: httpx.Response) -> float | None:
-    """Extract Retry-After header value in seconds."""
-    retry_after = response.headers.get("Retry-After")
-    if not retry_after:
-        return None
-
-    try:
-        return float(retry_after)
-    except ValueError:
-        return None
 
 
 class AsyncClient:
@@ -104,7 +59,7 @@ class AsyncClient:
             retry_delay=retry_delay,
         )
 
-        self.retry_config = AsyncRetryConfig(max_retries=max_retries, base_delay=retry_delay)
+        self.retry_config = RetryConfig(max_retries=max_retries, base_delay=retry_delay)
 
         # Create httpx async client with connection pooling and HTTP/2
         self._client = httpx.AsyncClient(
@@ -192,11 +147,11 @@ class AsyncClient:
                 # Check if we should retry based on status code
                 if (
                     retry
-                    and should_retry_async(response, None)
+                    and should_retry(response, None)
                     and attempt < self.retry_config.max_retries
                 ):
                     # Respect Retry-After header if present
-                    retry_after = get_retry_after_async(response)
+                    retry_after = get_retry_after(response)
                     delay = retry_after if retry_after else self.retry_config.get_delay(attempt)
 
                     logger.warning(
@@ -585,4 +540,4 @@ class AsyncClient:
         }
 
 
-__all__ = ["AsyncClient", "AsyncRetryConfig"]
+__all__ = ["AsyncClient"]

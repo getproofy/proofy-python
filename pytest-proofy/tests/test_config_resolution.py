@@ -152,7 +152,7 @@ def test_string_option_precedence(
             77,
             "88",
             "99",
-            10,
+            100,
         ),
         (
             "run_id",
