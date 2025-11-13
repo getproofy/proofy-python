@@ -14,6 +14,12 @@ authors = [
 ]
 license = "Apache-2.0"
 keywords = ["testing", "proofy", "commons", "shared"]
+
+[project.urls]
+Homepage = "https://github.com/getproofy/proofy-python"
+Repository = "https://github.com/getproofy/proofy-python"
+"Bug Tracker" = "https://github.com/getproofy/proofy-python/issues"
+
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
