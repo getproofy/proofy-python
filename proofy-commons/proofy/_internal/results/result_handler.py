@@ -161,12 +161,7 @@ class ResultsHandler:
             run_id: Optional run ID (if continuing existing run)
         """
         # Determine effective run name
-        effective_run_name = None
-        if self.config.run_name:
-            effective_run_name = self.config.run_name
-        else:
-            # Default fallback, includes framework and timestamp
-            effective_run_name = f"Test run {self.framework}-{now_rfc3339()}"
+        effective_run_name = self.config.run_name or f"Test run {self.framework}-{now_rfc3339()}"
 
         # Build run attributes: system + user-provided
         system_attrs = collect_system_attributes()
